@@ -79,7 +79,7 @@ db.serialize(() => {
     
     createUser('Lenkov', 'ClorumAdminNord', true);
     createUser('9nge', 'ClorumPrCreator9nge', true);
-    createUser('test', 'test123', false);
 });
 
 module.exports = { db, simpleHash };
+
