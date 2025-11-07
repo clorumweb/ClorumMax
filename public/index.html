@@ -1192,15 +1192,21 @@
     }
 
     async function loadChannels() {
-        try {
-            const response = await fetch('/api/channels');
-            channels = await response.json();
-            renderChannels();
-        } catch (error) {
-            console.error('Ошибка загрузки каналов:', error);
+    try {
+        const response = await fetch('/api/channels');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
+        const data = await response.json();
+        console.log('Channels loaded:', data);
+        channels = Array.isArray(data) ? data : [];
+        renderChannels();
+    } catch (error) {
+        console.error('Ошибка загрузки каналов:', error);
+        channels = []; // На всякий случай устанавливаем пустой массив
+        renderChannels();
     }
-
+}
     async function loadAllUsers() {
         try {
             console.log('Начало загрузки пользователей...');
