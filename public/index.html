@@ -957,7 +957,7 @@
                 <input type="text" id="loginUsername" class="auth-input" placeholder="Юзернейм" maxlength="32">
                 <input type="password" id="loginPassword" class="auth-input" placeholder="Пароль">
                 <div id="loginError" class="auth-error"></div>
-                <button onclick="login()" class="auth-button">Продолжить</button>
+                <button onclick="login()" class="auth-button">Войти</button>
             </div>
             
             <div id="registerForm" style="display: none;">
@@ -1175,8 +1175,13 @@
         // НАСТРОЙКИ WEBRTC
         const pcConfig = {
             iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' }
-            ]
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' }
+            ],
+            iceCandidatePoolSize: 10
         };
 
         // ФУНКЦИИ АВТОРИЗАЦИИ
@@ -1657,7 +1662,11 @@
         function createChannel() {
             const name = document.getElementById('channelNameInput').value.trim();
             if (name) {
-                socket.emit('create_channel', { name, type: 'text' });
+                socket.emit('create_channel', { 
+                    name, 
+                    type: 'text',
+                    createdBy: currentUser.id 
+                });
                 hideCreateChannelModal();
             }
         }
@@ -1837,6 +1846,28 @@
         // ПРОСТЫЕ РАБОЧИЕ ЗВОНКИ
         async function startCall(userId) {
             try {
+                const recipient = onlineUsers.find(u => u.id === userId);
+                if (!recipient) {
+                    alert('Пользователь не в сети');
+                    return;
+                }
+
+                // Запрашиваем доступ к микрофону ДО начала звонка
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({ 
+                        video: false, 
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        }
+                    });
+                } catch (error) {
+                    console.error('Ошибка доступа к микрофону:', error);
+                    alert('Не удалось получить доступ к микрофону. Проверьте разрешения браузера.');
+                    return;
+                }
+
                 // Отправляем запрос на звонок
                 socket.emit('start_call', { 
                     toUserId: userId, 
@@ -1845,7 +1876,8 @@
                 
                 // Сохраняем информацию о звонке
                 currentCall = { 
-                    toUserId: userId, 
+                    toUserId: userId,
+                    recipientSocketId: recipient.socketId,
                     type: 'audio',
                     isInitiator: true
                 };
@@ -1855,7 +1887,7 @@
                 
             } catch (error) {
                 console.error('Ошибка начала звонка:', error);
-                alert('Не удалось начать звонок');
+                alert('Не удалось начать звонок: ' + error.message);
             }
         }
 
@@ -1909,8 +1941,15 @@
                 // Запрашиваем доступ к микрофону
                 localStream = await navigator.mediaDevices.getUserMedia({ 
                     video: false, 
-                    audio: true 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
                 });
+                
+                // Обновляем currentCall с информацией о собеседнике
+                currentCall.recipientSocketId = currentCall.from;
                 
                 // Отправляем подтверждение звонка
                 socket.emit('accept_call', { from: currentCall.from });
@@ -1918,9 +1957,16 @@
                 // Показываем окно звонка
                 showCallWindow(currentCall.fromUserId, false);
                 
+                // Создаем PeerConnection для ответа на звонок
+                setTimeout(() => {
+                    if (peerConnection) {
+                        createAnswer();
+                    }
+                }, 1000);
+                
             } catch (error) {
                 console.error('Ошибка принятия звонка:', error);
-                alert('Не удалось получить доступ к микрофону');
+                alert('Не удалось получить доступ к микрофону: ' + error.message);
                 declineCall();
             }
         }
@@ -2086,9 +2132,9 @@
                 
                 // Обработчик ICE кандидатов
                 peerConnection.onicecandidate = (event) => {
-                    if (event.candidate && currentCall && currentCall.from) {
+                    if (event.candidate && currentCall && currentCall.recipientSocketId) {
                         socket.emit('webrtc_ice_candidate', {
-                            to: currentCall.from,
+                            to: currentCall.recipientSocketId,
                             candidate: event.candidate
                         });
                     }
@@ -2111,11 +2157,28 @@
                 await pc.setLocalDescription(offer);
                 
                 socket.emit('webrtc_offer', {
-                    to: currentCall.from,
+                    to: currentCall.recipientSocketId,
                     offer: offer
                 });
             } catch (error) {
                 console.error('Ошибка создания offer:', error);
+            }
+        }
+
+        async function createAnswer() {
+            const pc = await createSimplePeerConnection();
+            if (!pc) return;
+            
+            try {
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                
+                socket.emit('webrtc_answer', {
+                    to: currentCall.recipientSocketId,
+                    answer: answer
+                });
+            } catch (error) {
+                console.error('Ошибка создания answer:', error);
             }
         }
 
@@ -2129,7 +2192,7 @@
                 await pc.setLocalDescription(answer);
                 
                 socket.emit('webrtc_answer', {
-                    to: currentCall.from,
+                    to: currentCall.recipientSocketId,
                     answer: answer
                 });
             } catch (error) {
@@ -2179,11 +2242,6 @@
                     console.error('Ошибка добавления ICE кандидата:', error);
                 }
             }
-        });
-
-        socket.on('call_error', (error) => {
-            alert('Ошибка звонка: ' + error);
-            endCall();
         });
 
         // ОСТАЛЬНЫЕ ОБРАБОТЧИКИ
