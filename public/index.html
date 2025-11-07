@@ -1226,24 +1226,24 @@
             document.querySelectorAll('.server-icon').forEach(icon => icon.classList.remove('active'));
             event.target.classList.add('active');
             
-            if (view === 'server') {
-                document.getElementById('serverHeader').textContent = 'ClorumMax';
-                document.getElementById('searchContainer').style.display = 'none';
-                renderChannels();
-                if (channels.length > 0) {
-                    switchChannel(channels[0]);
-                }
-            } else {
-                document.getElementById('serverHeader').textContent = 'Личные сообщения';
-                document.getElementById('searchContainer').style.display = 'block';
-                renderFriendsList();
-                document.getElementById('messagesContainer').innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Выберите пользователя для начала общения</div>';
-                document.getElementById('currentChannelName').textContent = 'Личные сообщения';
-                document.getElementById('messageInput').placeholder = 'Выберите пользователя';
-                document.getElementById('channelActions').style.display = 'none';
-            }
-        }
-
+           if (view === 'server') {
+    document.getElementById('serverHeader').textContent = 'ClorumMax';
+    document.getElementById('searchContainer').style.display = 'none';
+    
+    // ВАЖНО: Сбрасываем состояние ЛС
+    currentDMUser = null;
+    
+    renderChannels();
+    if (channels.length > 0) {
+        switchChannel(channels[0]);
+    } else {
+        // Если каналов нет, очищаем чат
+        document.getElementById('messagesContainer').innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Нет доступных каналов</div>';
+        document.getElementById('currentChannelName').textContent = 'Нет канала';
+        document.getElementById('messageInput').placeholder = 'Нет канала';
+        document.getElementById('channelActions').style.display = 'none';
+    }
+}
         function renderChannels() {
             const container = document.getElementById('channelsList');
             const textChannels = channels.filter(c => c.type === 'text');
@@ -1278,9 +1278,14 @@
             });
             
             if (currentUser && currentUser.isAdmin) {
-                html += '<div class="add-channel" onclick="showCreateChannelModal()">+ Создать канал</div>';
-                html += '<div class="add-channel" onclick="showUserManagementModal()">👥 Управление пользователями</div>';
-            }
+    html += '<div class="add-channel" onclick="showCreateChannelModal()">+ Создать канал</div>';
+    html += '<div class="add-channel" onclick="showUserManagementModal()">Управление пользователями</div>';
+} else {
+    console.log('Admin check failed:', {
+        currentUser: !!currentUser,
+        isAdmin: currentUser ? currentUser.isAdmin : 'no user'
+    });
+}
             
             container.innerHTML = html;
         }
@@ -1321,10 +1326,10 @@
 
         async function switchChannel(channel) {
             if (isLoadingMessages) return;
-            
-            isLoadingMessages = true;
-            currentChannel = channel;
-            currentDMUser = null;
+    
+    isLoadingMessages = true;
+    currentChannel = channel;
+    currentDMUser = null; // ВАЖНО: сбрасываем ЛС при переключении на канал
             
             document.getElementById('currentChannelName').textContent = `#${channel.name}`;
             document.getElementById('messageInput').placeholder = `Написать сообщение в #${channel.name}`;
@@ -2019,6 +2024,22 @@
         socket.on('message_error', (error) => {
             alert('Ошибка отправки сообщения: ' + error);
         });
+
+
+            // Функция для отладки состояния
+function debugState() {
+    console.log('=== DEBUG STATE ===');
+    console.log('Current View:', currentView);
+    console.log('Current Channel:', currentChannel);
+    console.log('Current DM User:', currentDMUser);
+    console.log('Current User:', currentUser);
+    console.log('Channels count:', channels.length);
+    console.log('==================');
+}
+
+// Вызывай debugState() когда нужно посмотреть что происходит
+
+            
 
         // ЗАГРУЗКА ПРИЛОЖЕНИЯ
         window.addEventListener('load', function() {
