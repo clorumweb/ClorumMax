@@ -2,27 +2,39 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
 const dbPath = path.join(__dirname, 'messenger.db');
-const db = new sqlite3.Database(dbPath);
+const db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+        console.error('❌ Database error:', err);
+    } else {
+        console.log('✅ Database connected');
+    }
+});
 
-// Простая функция хеширования пароля
+// ВКЛЮЧАЕМ МАКСИМАЛЬНУЮ ПРОИЗВОДИТЕЛЬНОСТЬ
+db.configure("busyTimeout", 3000);
+db.run("PRAGMA journal_mode = WAL;");
+db.run("PRAGMA synchronous = NORMAL;"); 
+db.run("PRAGMA cache_size = -10000;");
+db.run("PRAGMA temp_store = MEMORY;");
+db.run("PRAGMA mmap_size = 268435456;");
+
 const simpleHash = {
     hash: (password) => Promise.resolve('hashed_' + password),
     compare: (password, hash) => Promise.resolve(hash === 'hashed_' + password)
 };
 
+// Создаем таблицы если их нет
 db.serialize(() => {
-    // Пользователи с паролями и профилями
     db.run(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
         display_name TEXT,
-        avatar_url TEXT,
+        avatar_url TEXT DEFAULT 'default',
         password TEXT,
         is_admin BOOLEAN DEFAULT FALSE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
     
-    // Серверные каналы
     db.run(`CREATE TABLE IF NOT EXISTS channels (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
@@ -31,7 +43,6 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
     
-    // Сообщения в каналах (поддержка изображений)
     db.run(`CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         channel_id INTEGER,
@@ -43,7 +54,6 @@ db.serialize(() => {
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
     
-    // Личные сообщения (поддержка изображений)
     db.run(`CREATE TABLE IF NOT EXISTS direct_messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         from_user INTEGER,
@@ -54,24 +64,22 @@ db.serialize(() => {
         FOREIGN KEY(to_user) REFERENCES users(id)
     )`);
     
-    console.log('✅ База данных готова!');
-    
-    // Создаем начальные каналы
+    // Создаем начальные данные
     db.run("INSERT OR IGNORE INTO channels (name, type) VALUES ('general', 'text')");
     db.run("INSERT OR IGNORE INTO channels (name, type) VALUES ('help', 'text')");
     
-    // Создаем админов с новыми паролями
-    const createAdmin = async (username, password) => {
+    // Создаем тестовых пользователей
+    const createUser = async (username, password, isAdmin = false) => {
         const hashedPassword = await simpleHash.hash(password);
         db.run(
-            `INSERT OR IGNORE INTO users (username, display_name, password, is_admin) 
-             VALUES (?, ?, ?, TRUE)`,
-            [username, username, hashedPassword]
+            `INSERT OR IGNORE INTO users (username, display_name, password, is_admin) VALUES (?, ?, ?, ?)`,
+            [username, username, hashedPassword, isAdmin]
         );
     };
     
-    createAdmin('Lenkov', 'ClorumAdminNord');
-    createAdmin('9nge', 'ClorumPrCreator9nge');
+    createUser('Lenkov', 'ClorumAdminNord', true);
+    createUser('9nge', 'ClorumPrCreator9nge', true);
+    createUser('test', 'test123', false);
 });
 
 module.exports = { db, simpleHash };
