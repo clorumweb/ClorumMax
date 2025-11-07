@@ -201,8 +201,12 @@ app.get('/api/users/all', (req, res) => {
 // 📦 ОПТИМИЗИРОВАННЫЕ ЗАПРОСЫ ДАННЫХ
 app.get('/api/channels', (req, res) => {
     db.all("SELECT id, name, type, permissions FROM channels ORDER BY created_at", (err, channels) => {
-        if (err) return res.status(500).json({ error: 'DB error' });
-        res.json(channels);
+        if (err) {
+            console.error('Channels DB error:', err);
+            return res.status(500).json({ error: 'DB error: ' + err.message });
+        }
+        // Если каналов нет, возвращаем пустой массив
+        res.json(channels || []);
     });
 });
 
@@ -417,3 +421,4 @@ server.listen(PORT, () => {
     console.log(`💾 Database optimized for performance`);
     console.log(`⚡ Message delivery: INSTANT`);
 });
+
