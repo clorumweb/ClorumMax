@@ -1279,12 +1279,7 @@
             
             if (currentUser && currentUser.isAdmin) {
     html += '<div class="add-channel" onclick="showCreateChannelModal()">+ Создать канал</div>';
-    html += '<div class="add-channel" onclick="showUserManagementModal()">Управление пользователями</div>';
-} else {
-    console.log('Admin check failed:', {
-        currentUser: !!currentUser,
-        isAdmin: currentUser ? currentUser.isAdmin : 'no user'
-    });
+    html += '<div class="add-channel" onclick="showUserManagementModal()">👥 Управление пользователями</div>';
 }
             
             container.innerHTML = html;
