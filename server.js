@@ -6,7 +6,14 @@ const { db, simpleHash } = require('./database.js');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+
+// ОДНО объявление io - удалите другие объявления если есть
+const io = socketIo(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
 const onlineUsers = new Map();
 
@@ -594,28 +601,6 @@ io.on('connection', (socket) => {
         }
     });
 });
-
-
-// Оптимизация Socket.IO
-const io = require('socket.io')(server, {
-  pingInterval: 25000,
-  pingTimeout: 60000,
-  transports: ['websocket', 'polling'],
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
-});
-
-// Оптимизация Express
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Health check для Railway
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
-});
-
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
