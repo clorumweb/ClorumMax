@@ -1064,986 +1064,980 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-    <script>
-        let socket = io();
-        let currentUser = null;
-        let currentView = 'server';
-        let currentChannel = null;
-        let currentDMUser = null;
-        let channels = [];
-        let onlineUsers = [];
-        let allUsers = [];
-        let selectedImage = null;
-        let isLoadingMessages = false;
+<script>
+    let socket = io();
+    let currentUser = null;
+    let currentView = 'server';
+    let currentChannel = null;
+    let currentDMUser = null;
+    let channels = [];
+    let onlineUsers = [];
+    let allUsers = [];
+    let selectedImage = null;
+    let isLoadingMessages = false;
 
-        // ФУНКЦИИ АВТОРИЗАЦИИ
-        function switchAuthTab(tab) {
-            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-            document.getElementById('loginForm').style.display = 'none';
-            document.getElementById('registerForm').style.display = 'none';
+    // ФУНКЦИИ АВТОРИЗАЦИИ
+    function switchAuthTab(tab) {
+        document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('registerForm').style.display = 'none';
+        
+        if (tab === 'login') {
+            document.querySelector('.auth-tab:nth-child(1)').classList.add('active');
+            document.getElementById('loginForm').style.display = 'block';
+        } else {
+            document.querySelector('.auth-tab:nth-child(2)').classList.add('active');
+            document.getElementById('registerForm').style.display = 'block';
+        }
+    }
+
+    async function login() {
+        const username = document.getElementById('loginUsername').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        const errorDiv = document.getElementById('loginError');
+        
+        errorDiv.textContent = '';
+        
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
             
-            if (tab === 'login') {
-                document.querySelector('.auth-tab:nth-child(1)').classList.add('active');
-                document.getElementById('loginForm').style.display = 'block';
+            const data = await response.json();
+            
+            if (data.success) {
+                currentUser = data.user;
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                initApp();
             } else {
-                document.querySelector('.auth-tab:nth-child(2)').classList.add('active');
-                document.getElementById('registerForm').style.display = 'block';
+                errorDiv.textContent = data.error;
             }
+        } catch (error) {
+            errorDiv.textContent = 'Ошибка соединения';
         }
+    }
 
-        async function login() {
-            const username = document.getElementById('loginUsername').value.trim();
-            const password = document.getElementById('loginPassword').value;
-            const errorDiv = document.getElementById('loginError');
+    async function register() {
+        const username = document.getElementById('registerUsername').value.trim();
+        const password = document.getElementById('registerPassword').value;
+        const errorDiv = document.getElementById('registerError');
+        
+        errorDiv.textContent = '';
+        
+        try {
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
             
-            errorDiv.textContent = '';
+            const data = await response.json();
             
-            try {
-                const response = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    currentUser = data.user;
-                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                    initApp();
-                } else {
-                    errorDiv.textContent = data.error;
-                }
-            } catch (error) {
-                errorDiv.textContent = 'Ошибка соединения';
+            if (data.success) {
+                errorDiv.textContent = 'Регистрация успешна! Теперь войдите.';
+                switchAuthTab('login');
+                document.getElementById('loginUsername').value = username;
+            } else {
+                errorDiv.textContent = data.error;
             }
+        } catch (error) {
+            errorDiv.textContent = 'Ошибка соединения';
+        }
+    }
+
+    function logout() {
+        localStorage.removeItem('currentUser');
+        location.reload();
+    }
+
+    // ОСНОВНЫЕ ФУНКЦИИ ПРИЛОЖЕНИЯ
+    async function initApp() {
+        console.log('Инициализация приложения...');
+        document.getElementById('authScreen').classList.add('hidden');
+        document.getElementById('mainApp').classList.remove('hidden');
+        
+        updateUserProfile();
+        
+        console.log('Загрузка каналов...');
+        await loadChannels();
+        
+        console.log('Загрузка пользователей...');
+        await loadAllUsers();
+        
+        console.log('Отправка online статуса...');
+        socket.emit('user_online', currentUser);
+        
+        if (channels.length > 0) {
+            switchChannel(channels[0]);
         }
 
-        async function register() {
-            const username = document.getElementById('registerUsername').value.trim();
-            const password = document.getElementById('registerPassword').value;
-            const errorDiv = document.getElementById('registerError');
-            
-            errorDiv.textContent = '';
-            
-            try {
-                const response = await fetch('/api/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    errorDiv.textContent = 'Регистрация успешна! Теперь войдите.';
-                    switchAuthTab('login');
-                    document.getElementById('loginUsername').value = username;
-                } else {
-                    errorDiv.textContent = data.error;
-                }
-            } catch (error) {
-                errorDiv.textContent = 'Ошибка соединения';
+        document.getElementById('fileInput').addEventListener('change', handleImageUpload);
+        document.getElementById('avatarUpload').addEventListener('change', handleAvatarUpload);
+        
+        console.log('Приложение инициализировано');
+    }
+
+    function updateUserProfile() {
+        document.getElementById('userDisplayName').textContent = currentUser.displayName;
+        document.getElementById('userTag').textContent = `@${currentUser.username}`;
+        
+        const avatarElement = document.getElementById('userAvatar');
+        if (currentUser.avatar && currentUser.avatar !== 'default') {
+            avatarElement.innerHTML = `<img src="${currentUser.avatar}" alt="Avatar">`;
+        } else {
+            avatarElement.textContent = currentUser.displayName.charAt(0).toUpperCase();
+        }
+    }
+
+    async function loadChannels() {
+        try {
+            const response = await fetch('/api/channels');
+            channels = await response.json();
+            renderChannels();
+        } catch (error) {
+            console.error('Ошибка загрузки каналов:', error);
+        }
+    }
+
+    async function loadAllUsers() {
+        try {
+            console.log('Начало загрузки пользователей...');
+            const response = await fetch('/api/users/all');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
+            allUsers = await response.json();
+            console.log('Успешно загружены пользователи:', allUsers.length);
+        } catch (error) {
+            console.error('Ошибка загрузки пользователей:', error);
+            allUsers = [
+                { id: 1, username: 'Lenkov', display_name: 'Lenkov', avatar_url: 'default', is_admin: true },
+                { id: 2, username: '9nge', display_name: '9nge', avatar_url: 'default', is_admin: true },
+                { id: 3, username: 'test', display_name: 'test', avatar_url: 'default', is_admin: false }
+            ];
+            console.log('Используем тестовых пользователей');
         }
+    }
 
-        function logout() {
-            localStorage.removeItem('currentUser');
-            location.reload();
-        }
-
-        // ОСНОВНЫЕ ФУНКЦИИ ПРИЛОЖЕНИЯ
-        async function initApp() {
-            console.log('Инициализация приложения...');
-            document.getElementById('authScreen').classList.add('hidden');
-            document.getElementById('mainApp').classList.remove('hidden');
+    function switchView(view) {
+        currentView = view;
+        document.querySelectorAll('.server-icon').forEach(icon => icon.classList.remove('active'));
+        event.target.closest('.server-icon').classList.add('active');
+        
+        if (view === 'server') {
+            document.getElementById('serverHeader').textContent = 'ClorumMax';
+            document.getElementById('searchContainer').style.display = 'none';
             
-            updateUserProfile();
+            // ВАЖНО: Сбрасываем состояние ЛС
+            currentDMUser = null;
             
-            console.log('Загрузка каналов...');
-            await loadChannels();
-            
-            console.log('Загрузка пользователей...');
-            await loadAllUsers();
-            
-            console.log('Отправка online статуса...');
-            socket.emit('user_online', currentUser);
-            
+            renderChannels();
             if (channels.length > 0) {
                 switchChannel(channels[0]);
-            }
-
-            document.getElementById('fileInput').addEventListener('change', handleImageUpload);
-            document.getElementById('avatarUpload').addEventListener('change', handleAvatarUpload);
-            
-            console.log('Приложение инициализировано');
-        }
-
-        function updateUserProfile() {
-            document.getElementById('userDisplayName').textContent = currentUser.displayName;
-            document.getElementById('userTag').textContent = `@${currentUser.username}`;
-            
-            const avatarElement = document.getElementById('userAvatar');
-            if (currentUser.avatar && currentUser.avatar !== 'default') {
-                avatarElement.innerHTML = `<img src="${currentUser.avatar}" alt="Avatar">`;
             } else {
-                avatarElement.textContent = currentUser.displayName.charAt(0).toUpperCase();
+                // Если каналов нет, очищаем чат
+                document.getElementById('messagesContainer').innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Нет доступных каналов</div>';
+                document.getElementById('currentChannelName').textContent = 'Нет канала';
+                document.getElementById('messageInput').placeholder = 'Нет канала';
+                document.getElementById('channelActions').style.display = 'none';
             }
+        } else {
+            document.getElementById('serverHeader').textContent = 'Личные сообщения';
+            document.getElementById('searchContainer').style.display = 'block';
+            renderFriendsList();
+            document.getElementById('messagesContainer').innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Выберите пользователя для начала общения</div>';
+            document.getElementById('currentChannelName').textContent = 'Личные сообщения';
+            document.getElementById('messageInput').placeholder = 'Выберите пользователя';
+            document.getElementById('channelActions').style.display = 'none';
         }
-
-        async function loadChannels() {
-            try {
-                const response = await fetch('/api/channels');
-                channels = await response.json();
-                renderChannels();
-            } catch (error) {
-                console.error('Ошибка загрузки каналов:', error);
-            }
-        }
-
-        async function loadAllUsers() {
-            try {
-                console.log('Начало загрузки пользователей...');
-                const response = await fetch('/api/users/all');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                allUsers = await response.json();
-                console.log('Успешно загружены пользователи:', allUsers.length);
-            } catch (error) {
-                console.error('Ошибка загрузки пользователей:', error);
-                allUsers = [
-                    { id: 1, username: 'Lenkov', display_name: 'Lenkov', avatar_url: 'default', is_admin: true },
-                    { id: 2, username: '9nge', display_name: '9nge', avatar_url: 'default', is_admin: true },
-                    { id: 3, username: 'test', display_name: 'test', avatar_url: 'default', is_admin: false }
-                ];
-                console.log('Используем тестовых пользователей');
-            }
-        }
-
-        function switchView(view) {
-            currentView = view;
-            document.querySelectorAll('.server-icon').forEach(icon => icon.classList.remove('active'));
-            event.target.classList.add('active');
-            
-           if (view === 'server') {
-    document.getElementById('serverHeader').textContent = 'ClorumMax';
-    document.getElementById('searchContainer').style.display = 'none';
-    
-    // ВАЖНО: Сбрасываем состояние ЛС
-    currentDMUser = null;
-    
-    renderChannels();
-    if (channels.length > 0) {
-        switchChannel(channels[0]);
-    } else {
-        // Если каналов нет, очищаем чат
-        document.getElementById('messagesContainer').innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Нет доступных каналов</div>';
-        document.getElementById('currentChannelName').textContent = 'Нет канала';
-        document.getElementById('messageInput').placeholder = 'Нет канала';
-        document.getElementById('channelActions').style.display = 'none';
     }
-}
-        function renderChannels() {
-            const container = document.getElementById('channelsList');
-            const textChannels = channels.filter(c => c.type === 'text');
+
+    function renderChannels() {
+        const container = document.getElementById('channelsList');
+        const textChannels = channels.filter(c => c.type === 'text');
+        
+        let html = '<div class="channel-category">Текстовые каналы</div>';
+        
+        textChannels.forEach(channel => {
+            const isActive = currentChannel && currentChannel.id === channel.id;
+            const permissions = typeof channel.permissions === 'string' 
+                ? JSON.parse(channel.permissions) 
+                : channel.permissions;
             
-            let html = '<div class="channel-category">Текстовые каналы</div>';
-            
-            textChannels.forEach(channel => {
-                const isActive = currentChannel && currentChannel.id === channel.id;
-                const permissions = typeof channel.permissions === 'string' 
-                    ? JSON.parse(channel.permissions) 
-                    : channel.permissions;
+            html += `
+                <div class="channel-item text ${isActive ? 'active' : ''}" 
+                     onclick="switchChannel(${JSON.stringify(channel).replace(/"/g, '&quot;')})">
+                    <span>${channel.name}</span>
+                    ${currentUser && currentUser.isAdmin ? `
+                        <div class="channel-actions-small">
+                            <button class="message-action-btn" onclick="event.stopPropagation(); showEditChannelModal(${channel.id})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="message-action-btn" onclick="event.stopPropagation(); showChannelSettingsModal(${channel.id})">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                            <button class="message-action-btn" onclick="event.stopPropagation(); showDeleteChannelModal(${channel.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+        
+        if (currentUser && currentUser.isAdmin) {
+            html += '<div class="add-channel" onclick="showCreateChannelModal()">+ Создать канал</div>';
+            html += '<div class="add-channel" onclick="showUserManagementModal()">Управление пользователями</div>';
+        }
+        
+        container.innerHTML = html;
+    }
+
+    function renderFriendsList() {
+        const container = document.getElementById('channelsList');
+        const otherUsers = allUsers.filter(user => user.id !== currentUser.id);
+        
+        let html = '<div class="channel-category">Все пользователи</div>';
+        
+        if (otherUsers.length === 0) {
+            html += `
+                <div style="color: var(--text-muted); padding: 20px; text-align: center;">
+                    <i class="fas fa-users" style="font-size: 24px; margin-bottom: 10px; display: block;"></i>
+                    Пользователи не найдены
+                </div>
+            `;
+        } else {
+            otherUsers.forEach(user => {
+                const isOnline = onlineUsers.some(u => u.id === user.id);
+                const displayName = user.display_name || user.username;
+                const avatar = user.avatar_url && user.avatar_url !== 'default' ? 
+                    `<img src="${user.avatar_url}" alt="${displayName}">` : 
+                    displayName.charAt(0).toUpperCase();
                 
                 html += `
-                    <div class="channel-item text ${isActive ? 'active' : ''}" 
-                         onclick="switchChannel(${JSON.stringify(channel).replace(/"/g, '&quot;')})">
-                        <span>${channel.name}</span>
-                        ${currentUser && currentUser.isAdmin ? `
-                            <div class="channel-actions-small">
-                                <button class="message-action-btn" onclick="event.stopPropagation(); showEditChannelModal(${channel.id})">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="message-action-btn" onclick="event.stopPropagation(); showChannelSettingsModal(${channel.id})">
-                                    <i class="fas fa-cog"></i>
-                                </button>
-                                <button class="message-action-btn" onclick="event.stopPropagation(); showDeleteChannelModal(${channel.id})">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        ` : ''}
+                    <div class="channel-item dm" onclick="openDM(${user.id})" title="Написать ${displayName}">
+                        <div class="member-avatar">${avatar}</div>
+                        <span class="member-name">${displayName}</span>
+                        ${isOnline ? '<div class="online-indicator" title="В сети"></div>' : '<div style="width: 8px;"></div>'}
                     </div>
                 `;
             });
-            
-            if (currentUser && currentUser.isAdmin) {
-    html += '<div class="add-channel" onclick="showCreateChannelModal()">+ Создать канал</div>';
-    html += '<div class="add-channel" onclick="showUserManagementModal()">👥 Управление пользователями</div>';
-}
-            
-            container.innerHTML = html;
         }
+        
+        container.innerHTML = html;
+    }
 
-        function renderFriendsList() {
-            const container = document.getElementById('channelsList');
-            const otherUsers = allUsers.filter(user => user.id !== currentUser.id);
-            
-            let html = '<div class="channel-category">Все пользователи</div>';
-            
-            if (otherUsers.length === 0) {
-                html += `
-                    <div style="color: var(--text-muted); padding: 20px; text-align: center;">
-                        <i class="fas fa-users" style="font-size: 24px; margin-bottom: 10px; display: block;"></i>
-                        Пользователи не найдены
-                    </div>
-                `;
-            } else {
-                otherUsers.forEach(user => {
-                    const isOnline = onlineUsers.some(u => u.id === user.id);
-                    const displayName = user.display_name || user.username;
-                    const avatar = user.avatar_url && user.avatar_url !== 'default' ? 
-                        `<img src="${user.avatar_url}" alt="${displayName}">` : 
-                        displayName.charAt(0).toUpperCase();
-                    
-                    html += `
-                        <div class="channel-item dm" onclick="openDM(${user.id})" title="Написать ${displayName}">
-                            <div class="member-avatar">${avatar}</div>
-                            <span class="member-name">${displayName}</span>
-                            ${isOnline ? '<div class="online-indicator" title="В сети"></div>' : '<div style="width: 8px;"></div>'}
-                        </div>
-                    `;
-                });
-            }
-            
-            container.innerHTML = html;
-        }
-
-        async function switchChannel(channel) {
-            if (isLoadingMessages) return;
-    
-    isLoadingMessages = true;
-    currentChannel = channel;
-    currentDMUser = null; // ВАЖНО: сбрасываем ЛС при переключении на канал
-            
-            document.getElementById('currentChannelName').textContent = `#${channel.name}`;
-            document.getElementById('messageInput').placeholder = `Написать сообщение в #${channel.name}`;
-            
-            if (currentUser && currentUser.isAdmin) {
-                document.getElementById('channelActions').style.display = 'flex';
-            } else {
-                document.getElementById('channelActions').style.display = 'none';
-            }
-            
-            renderChannels();
-            
-            // Показываем индикатор загрузки
-            const container = document.getElementById('messagesContainer');
-            container.innerHTML = '<div class="loading">Загрузка сообщений...</div>';
-            
-            try {
-                const response = await fetch(`/api/channels/${channel.id}/messages`);
-                const messages = await response.json();
-                
-                // Небольшая задержка для плавности
-                setTimeout(() => {
-                    renderMessages(messages);
-                    isLoadingMessages = false;
-                }, 100);
-            } catch (error) {
-                console.error('Ошибка загрузки сообщений:', error);
-                container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Ошибка загрузки сообщений</div>';
-                isLoadingMessages = false;
-            }
-        }
-
-        async function openDM(userId) {
-            if (isLoadingMessages) return;
-            
-            isLoadingMessages = true;
-            const user = allUsers.find(u => u.id === userId);
-            currentDMUser = user;
-            currentChannel = null;
-            
-            document.getElementById('currentChannelName').textContent = user.display_name || user.username;
-            document.getElementById('messageInput').placeholder = `Написать сообщение для ${user.display_name || user.username}`;
+    async function switchChannel(channel) {
+        if (isLoadingMessages) return;
+        
+        isLoadingMessages = true;
+        currentChannel = channel;
+        currentDMUser = null; // ВАЖНО: сбрасываем ЛС при переключении на канал
+        
+        document.getElementById('currentChannelName').textContent = `#${channel.name}`;
+        document.getElementById('messageInput').placeholder = `Написать сообщение в #${channel.name}`;
+        
+        if (currentUser && currentUser.isAdmin) {
+            document.getElementById('channelActions').style.display = 'flex';
+        } else {
             document.getElementById('channelActions').style.display = 'none';
+        }
+        
+        renderChannels();
+        
+        // Показываем индикатор загрузки
+        const container = document.getElementById('messagesContainer');
+        container.innerHTML = '<div class="loading">Загрузка сообщений...</div>';
+        
+        try {
+            const response = await fetch(`/api/channels/${channel.id}/messages`);
+            const messages = await response.json();
             
-            // Показываем индикатор загрузки
-            const container = document.getElementById('messagesContainer');
-            container.innerHTML = '<div class="loading">Загрузка сообщений...</div>';
-            
-            try {
-                const response = await fetch(`/api/direct-messages/${currentUser.id}/${userId}`);
-                const messages = await response.json();
-                
-                // Небольшая задержка для плавности
-                setTimeout(() => {
-                    renderDMMessages(messages);
-                    isLoadingMessages = false;
-                }, 100);
-            } catch (error) {
-                console.error('Ошибка загрузки ЛС:', error);
-                container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Ошибка загрузки сообщений</div>';
+            // Небольшая задержка для плавности
+            setTimeout(() => {
+                renderMessages(messages);
                 isLoadingMessages = false;
-            }
+            }, 100);
+        } catch (error) {
+            console.error('Ошибка загрузки сообщений:', error);
+            container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Ошибка загрузки сообщений</div>';
+            isLoadingMessages = false;
         }
+    }
 
-        function renderMessages(messages) {
-            const container = document.getElementById('messagesContainer');
+    async function openDM(userId) {
+        if (isLoadingMessages) return;
+        
+        isLoadingMessages = true;
+        const user = allUsers.find(u => u.id === userId);
+        currentDMUser = user;
+        currentChannel = null;
+        
+        document.getElementById('currentChannelName').textContent = user.display_name || user.username;
+        document.getElementById('messageInput').placeholder = `Написать сообщение для ${user.display_name || user.username}`;
+        document.getElementById('channelActions').style.display = 'none';
+        
+        // Показываем индикатор загрузки
+        const container = document.getElementById('messagesContainer');
+        container.innerHTML = '<div class="loading">Загрузка сообщений...</div>';
+        
+        try {
+            const response = await fetch(`/api/direct-messages/${currentUser.id}/${userId}`);
+            const messages = await response.json();
             
-            if (messages.length === 0) {
-                container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Здесь пока нет сообщений</div>';
-                return;
-            }
+            // Небольшая задержка для плавности
+            setTimeout(() => {
+                renderDMMessages(messages);
+                isLoadingMessages = false;
+            }, 100);
+        } catch (error) {
+            console.error('Ошибка загрузки ЛС:', error);
+            container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Ошибка загрузки сообщений</div>';
+            isLoadingMessages = false;
+        }
+    }
+
+    function renderMessages(messages) {
+        const container = document.getElementById('messagesContainer');
+        
+        if (messages.length === 0) {
+            container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Здесь пока нет сообщений</div>';
+            return;
+        }
+        
+        container.innerHTML = messages.map(msg => {
+            const avatar = msg.avatar_url && msg.avatar_url !== 'default' ? 
+                `<img src="${msg.avatar_url}" alt="Avatar">` : 
+                (msg.display_name || msg.username).charAt(0).toUpperCase();
             
-            container.innerHTML = messages.map(msg => {
-                const avatar = msg.avatar_url && msg.avatar_url !== 'default' ? 
-                    `<img src="${msg.avatar_url}" alt="Avatar">` : 
-                    (msg.display_name || msg.username).charAt(0).toUpperCase();
-                
-                const isImage = msg.content.startsWith('data:image');
-                const messageContent = isImage ? 
-                    `<img src="${msg.content}" class="message-image" onclick="viewImage('${msg.content}')">` : 
-                    msg.content;
-                
-                const canDelete = currentUser && (currentUser.isAdmin || currentUser.id === msg.user_id);
-                
-                return `
-                    <div class="message" data-message-id="${msg.id}">
-                        <div class="message-avatar">${avatar}</div>
-                        <div class="message-content">
-                            <div class="message-header">
-                                <span class="message-author">${msg.display_name || msg.username}</span>
-                                <span class="message-time">${new Date(msg.created_at).toLocaleTimeString('ru-RU', { 
-                                    hour: '2-digit', 
-                                    minute: '2-digit' 
-                                })}</span>
-                            </div>
-                            <div class="message-text">${messageContent}</div>
+            const isImage = msg.content.startsWith('data:image');
+            const messageContent = isImage ? 
+                `<img src="${msg.content}" class="message-image" onclick="viewImage('${msg.content}')">` : 
+                msg.content;
+            
+            const canDelete = currentUser && (currentUser.isAdmin || currentUser.id === msg.user_id);
+            
+            return `
+                <div class="message" data-message-id="${msg.id}">
+                    <div class="message-avatar">${avatar}</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-author">${msg.display_name || msg.username}</span>
+                            <span class="message-time">${new Date(msg.created_at).toLocaleTimeString('ru-RU', { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                            })}</span>
                         </div>
-                        ${canDelete ? `
-                            <div class="message-actions">
-                                <button class="message-action-btn" onclick="deleteMessage(${msg.id})">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        ` : ''}
+                        <div class="message-text">${messageContent}</div>
                     </div>
-                `;
-            }).join('');
-            
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function renderDMMessages(messages) {
-            const container = document.getElementById('messagesContainer');
-            
-            if (messages.length === 0) {
-                container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Здесь пока нет сообщений</div>';
-                return;
-            }
-            
-            container.innerHTML = messages.map(msg => {
-                const avatar = msg.from_avatar && msg.from_avatar !== 'default' ? 
-                    `<img src="${msg.from_avatar}" alt="Avatar">` : 
-                    (msg.from_display_name || msg.from_username).charAt(0).toUpperCase();
-                
-                const isImage = msg.content.startsWith('data:image');
-                const messageContent = isImage ? 
-                    `<img src="${msg.content}" class="message-image" onclick="viewImage('${msg.content}')">` : 
-                    msg.content;
-                
-                const canDelete = currentUser && currentUser.id === msg.from_user;
-                
-                return `
-                    <div class="message" data-message-id="${msg.id}">
-                        <div class="message-avatar">${avatar}</div>
-                        <div class="message-content">
-                            <div class="message-header">
-                                <span class="message-author">${msg.from_display_name || msg.from_username}</span>
-                                <span class="message-time">${new Date(msg.created_at).toLocaleTimeString('ru-RU', { 
-                                    hour: '2-digit', 
-                                    minute: '2-digit' 
-                                })}</span>
-                            </div>
-                            <div class="message-text">${messageContent}</div>
+                    ${canDelete ? `
+                        <div class="message-actions">
+                            <button class="message-action-btn" onclick="deleteMessage(${msg.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
                         </div>
-                        ${canDelete ? `
-                            <div class="message-actions">
-                                <button class="message-action-btn" onclick="deleteDirectMessage(${msg.id})">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        ` : ''}
-                    </div>
-                `;
-            }).join('');
-            
-            container.scrollTop = container.scrollHeight;
-        }
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+        
+        container.scrollTop = container.scrollHeight;
+    }
 
-        function renderMembers() {
-            const container = document.getElementById('membersList');
-            const onlineCount = onlineUsers.length;
+    function renderDMMessages(messages) {
+        const container = document.getElementById('messagesContainer');
+        
+        if (messages.length === 0) {
+            container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Здесь пока нет сообщений</div>';
+            return;
+        }
+        
+        container.innerHTML = messages.map(msg => {
+            const avatar = msg.from_avatar && msg.from_avatar !== 'default' ? 
+                `<img src="${msg.from_avatar}" alt="Avatar">` : 
+                (msg.from_display_name || msg.from_username).charAt(0).toUpperCase();
             
-            document.getElementById('onlineCount').textContent = onlineCount;
+            const isImage = msg.content.startsWith('data:image');
+            const messageContent = isImage ? 
+                `<img src="${msg.content}" class="message-image" onclick="viewImage('${msg.content}')">` : 
+                msg.content;
             
-            container.innerHTML = onlineUsers.map(user => {
-                const avatar = user.avatar && user.avatar !== 'default' ? 
-                    `<img src="${user.avatar}" alt="Avatar">` : 
-                    user.displayName.charAt(0).toUpperCase();
+            const canDelete = currentUser && currentUser.id === msg.from_user;
+            
+            return `
+                <div class="message" data-message-id="${msg.id}">
+                    <div class="message-avatar">${avatar}</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-author">${msg.from_display_name || msg.from_username}</span>
+                            <span class="message-time">${new Date(msg.created_at).toLocaleTimeString('ru-RU', { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                            })}</span>
+                        </div>
+                        <div class="message-text">${messageContent}</div>
+                    </div>
+                    ${canDelete ? `
+                        <div class="message-actions">
+                            <button class="message-action-btn" onclick="deleteDirectMessage(${msg.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+        
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function renderMembers() {
+        const container = document.getElementById('membersList');
+        const onlineCount = onlineUsers.length;
+        
+        document.getElementById('onlineCount').textContent = onlineCount;
+        
+        container.innerHTML = onlineUsers.map(user => {
+            const avatar = user.avatar && user.avatar !== 'default' ? 
+                `<img src="${user.avatar}" alt="Avatar">` : 
+                user.displayName.charAt(0).toUpperCase();
+            
+            return `
+                <div class="member-item" onclick="openDM(${user.id})">
+                    <div class="member-avatar">${avatar}</div>
+                    <div class="member-name">${user.displayName}</div>
+                    ${user.isAdmin ? '<div class="admin-badge">ADMIN</div>' : ''}
+                    <div class="online-indicator"></div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function handleMessageKeypress(event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            sendMessage();
+        }
+    }
+
+    function sendMessage() {
+        const input = document.getElementById('messageInput');
+        let content = input.value.trim();
+        
+        if (selectedImage) {
+            content = selectedImage;
+        }
+        
+        if (content) {
+            if (currentView === 'server' && currentChannel) {
+                socket.emit('send_message', {
+                    channelId: currentChannel.id,
+                    content: content
+                });
+            } else if (currentView === 'friends' && currentDMUser) {
+                socket.emit('send_direct_message', {
+                    toUserId: currentDMUser.id,
+                    content: content
+                });
+            }
+            input.value = '';
+            clearImagePreview();
+        }
+    }
+
+    function handleImageUpload(event) {
+        const file = event.target.files[0];
+        if (file && file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                selectedImage = e.target.result;
+                document.getElementById('imagePreview').src = selectedImage;
+                document.getElementById('imagePreview').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function handleAvatarUpload(event) {
+        const file = event.target.files[0];
+        if (file && file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('avatarUpload').dataset.imageData = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function clearImagePreview() {
+        selectedImage = null;
+        document.getElementById('imagePreview').style.display = 'none';
+        document.getElementById('fileInput').value = '';
+    }
+
+    function viewImage(src) {
+        window.open(src, '_blank');
+    }
+
+    async function searchUsers() {
+        const query = document.getElementById('searchInput').value.trim();
+        if (query.length < 2) {
+            document.getElementById('searchResults').innerHTML = '';
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/users/search/${query}`);
+            const users = await response.json();
+            
+            const results = document.getElementById('searchResults');
+            results.innerHTML = users.map(user => {
+                const avatar = user.avatar_url && user.avatar_url !== 'default' ? 
+                    `<img src="${user.avatar_url}" alt="Avatar">` : 
+                    (user.display_name || user.username).charAt(0).toUpperCase();
                 
                 return `
-                    <div class="member-item" onclick="openDM(${user.id})">
+                    <div class="search-result-item" onclick="openDM(${user.id})">
                         <div class="member-avatar">${avatar}</div>
-                        <div class="member-name">${user.displayName}</div>
-                        ${user.isAdmin ? '<div class="admin-badge">ADMIN</div>' : ''}
-                        <div class="online-indicator"></div>
+                        <div class="member-name">${user.display_name || user.username}</div>
                     </div>
                 `;
             }).join('');
+        } catch (error) {
+            console.error('Ошибка поиска:', error);
         }
+    }
 
-        function handleMessageKeypress(event) {
-            if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                sendMessage();
-            }
+    // УПРАВЛЕНИЕ КАНАЛАМИ И ПОЛЬЗОВАТЕЛЯМИ
+    function showCreateChannelModal() {
+        document.getElementById('createChannelModal').classList.remove('hidden');
+    }
+
+    function hideCreateChannelModal() {
+        document.getElementById('createChannelModal').classList.add('hidden');
+    }
+
+    function createChannel() {
+        const name = document.getElementById('channelNameInput').value.trim();
+        if (name) {
+            socket.emit('create_channel', { 
+                name, 
+                type: 'text',
+                createdBy: currentUser.id,
+                permissions: { read: true, write: true }
+            });
+            hideCreateChannelModal();
         }
+    }
 
-        function sendMessage() {
-            const input = document.getElementById('messageInput');
-            let content = input.value.trim();
+    function showEditChannelModal(channelId) {
+        const channel = channelId ? channels.find(c => c.id === channelId) : currentChannel;
+        if (channel) {
+            document.getElementById('editChannelNameInput').value = channel.name;
+            document.getElementById('editChannelNameInput').dataset.channelId = channel.id;
+            document.getElementById('editChannelModal').classList.remove('hidden');
+        }
+    }
+
+    function hideEditChannelModal() {
+        document.getElementById('editChannelModal').classList.add('hidden');
+    }
+
+    function updateChannel() {
+        const name = document.getElementById('editChannelNameInput').value.trim();
+        const channelId = document.getElementById('editChannelNameInput').dataset.channelId;
+        if (name && channelId) {
+            socket.emit('update_channel', { channelId: parseInt(channelId), name });
+            hideEditChannelModal();
+        }
+    }
+
+    function showChannelSettingsModal(channelId) {
+        const channel = channelId ? channels.find(c => c.id === channelId) : currentChannel;
+        if (channel) {
+            const permissions = typeof channel.permissions === 'string' 
+                ? JSON.parse(channel.permissions) 
+                : channel.permissions;
             
-            if (selectedImage) {
-                content = selectedImage;
-            }
+            document.getElementById('readPermission').checked = permissions.read;
+            document.getElementById('writePermission').checked = permissions.write;
+            document.getElementById('channelSettingsModal').dataset.channelId = channel.id;
+            document.getElementById('channelSettingsModal').classList.remove('hidden');
+        }
+    }
+
+    function hideChannelSettingsModal() {
+        document.getElementById('channelSettingsModal').classList.add('hidden');
+    }
+
+    async function saveChannelPermissions() {
+        const channelId = document.getElementById('channelSettingsModal').dataset.channelId;
+        const readPermission = document.getElementById('readPermission').checked;
+        const writePermission = document.getElementById('writePermission').checked;
+        
+        try {
+            const response = await fetch(`/api/channels/${channelId}/permissions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    permissions: { read: readPermission, write: writePermission }
+                })
+            });
             
-            if (content) {
-                if (currentView === 'server' && currentChannel) {
-                    socket.emit('send_message', {
-                        channelId: currentChannel.id,
-                        content: content
-                    });
-                } else if (currentView === 'friends' && currentDMUser) {
-                    socket.emit('send_direct_message', {
-                        toUserId: currentDMUser.id,
-                        content: content
-                    });
-                }
-                input.value = '';
-                clearImagePreview();
+            const data = await response.json();
+            if (data.success) {
+                hideChannelSettingsModal();
+                loadChannels();
             }
+        } catch (error) {
+            console.error('Ошибка сохранения прав:', error);
         }
+    }
 
-        function handleImageUpload(event) {
-            const file = event.target.files[0];
-            if (file && file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    selectedImage = e.target.result;
-                    document.getElementById('imagePreview').src = selectedImage;
-                    document.getElementById('imagePreview').style.display = 'block';
-                };
-                reader.readAsDataURL(file);
-            }
+    function showDeleteChannelModal(channelId) {
+        const channel = channelId ? channels.find(c => c.id === channelId) : currentChannel;
+        if (channel) {
+            document.getElementById('deleteChannelModal').dataset.channelId = channel.id;
+            document.getElementById('deleteChannelModal').classList.remove('hidden');
         }
+    }
 
-        function handleAvatarUpload(event) {
-            const file = event.target.files[0];
-            if (file && file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    document.getElementById('avatarUpload').dataset.imageData = e.target.result;
-                };
-                reader.readAsDataURL(file);
-            }
-        }
+    function hideDeleteChannelModal() {
+        document.getElementById('deleteChannelModal').classList.add('hidden');
+    }
 
-        function clearImagePreview() {
-            selectedImage = null;
-            document.getElementById('imagePreview').style.display = 'none';
-            document.getElementById('fileInput').value = '';
-        }
-
-        function viewImage(src) {
-            window.open(src, '_blank');
-        }
-
-        async function searchUsers() {
-            const query = document.getElementById('searchInput').value.trim();
-            if (query.length < 2) {
-                document.getElementById('searchResults').innerHTML = '';
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/api/users/search/${query}`);
-                const users = await response.json();
-                
-                const results = document.getElementById('searchResults');
-                results.innerHTML = users.map(user => {
-                    const avatar = user.avatar_url && user.avatar_url !== 'default' ? 
-                        `<img src="${user.avatar_url}" alt="Avatar">` : 
-                        (user.display_name || user.username).charAt(0).toUpperCase();
-                    
-                    return `
-                        <div class="search-result-item" onclick="openDM(${user.id})">
-                            <div class="member-avatar">${avatar}</div>
-                            <div class="member-name">${user.display_name || user.username}</div>
-                        </div>
-                    `;
-                }).join('');
-            } catch (error) {
-                console.error('Ошибка поиска:', error);
-            }
-        }
-
-        // УПРАВЛЕНИЕ КАНАЛАМИ И ПОЛЬЗОВАТЕЛЯМИ
-        function showCreateChannelModal() {
-            document.getElementById('createChannelModal').classList.remove('hidden');
-        }
-
-        function hideCreateChannelModal() {
-            document.getElementById('createChannelModal').classList.add('hidden');
-        }
-
-        function createChannel() {
-            const name = document.getElementById('channelNameInput').value.trim();
-            if (name) {
-                socket.emit('create_channel', { 
-                    name, 
-                    type: 'text',
-                    createdBy: currentUser.id,
-                    permissions: { read: true, write: true }
-                });
-                hideCreateChannelModal();
-            }
-        }
-
-        function showEditChannelModal(channelId) {
-            const channel = channelId ? channels.find(c => c.id === channelId) : currentChannel;
-            if (channel) {
-                document.getElementById('editChannelNameInput').value = channel.name;
-                document.getElementById('editChannelNameInput').dataset.channelId = channel.id;
-                document.getElementById('editChannelModal').classList.remove('hidden');
-            }
-        }
-
-        function hideEditChannelModal() {
-            document.getElementById('editChannelModal').classList.add('hidden');
-        }
-
-        function updateChannel() {
-            const name = document.getElementById('editChannelNameInput').value.trim();
-            const channelId = document.getElementById('editChannelNameInput').dataset.channelId;
-            if (name && channelId) {
-                socket.emit('update_channel', { channelId: parseInt(channelId), name });
-                hideEditChannelModal();
-            }
-        }
-
-        function showChannelSettingsModal(channelId) {
-            const channel = channelId ? channels.find(c => c.id === channelId) : currentChannel;
-            if (channel) {
-                const permissions = typeof channel.permissions === 'string' 
-                    ? JSON.parse(channel.permissions) 
-                    : channel.permissions;
-                
-                document.getElementById('readPermission').checked = permissions.read;
-                document.getElementById('writePermission').checked = permissions.write;
-                document.getElementById('channelSettingsModal').dataset.channelId = channel.id;
-                document.getElementById('channelSettingsModal').classList.remove('hidden');
-            }
-        }
-
-        function hideChannelSettingsModal() {
-            document.getElementById('channelSettingsModal').classList.add('hidden');
-        }
-
-        async function saveChannelPermissions() {
-            const channelId = document.getElementById('channelSettingsModal').dataset.channelId;
-            const readPermission = document.getElementById('readPermission').checked;
-            const writePermission = document.getElementById('writePermission').checked;
-            
-            try {
-                const response = await fetch(`/api/channels/${channelId}/permissions`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        permissions: { read: readPermission, write: writePermission }
-                    })
-                });
-                
-                const data = await response.json();
+    function deleteChannel() {
+        const channelId = document.getElementById('deleteChannelModal').dataset.channelId;
+        if (channelId) {
+            fetch(`/api/channels/${channelId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
                 if (data.success) {
-                    hideChannelSettingsModal();
+                    hideDeleteChannelModal();
                     loadChannels();
-                }
-            } catch (error) {
-                console.error('Ошибка сохранения прав:', error);
-            }
-        }
-
-        function showDeleteChannelModal(channelId) {
-            const channel = channelId ? channels.find(c => c.id === channelId) : currentChannel;
-            if (channel) {
-                document.getElementById('deleteChannelModal').dataset.channelId = channel.id;
-                document.getElementById('deleteChannelModal').classList.remove('hidden');
-            }
-        }
-
-        function hideDeleteChannelModal() {
-            document.getElementById('deleteChannelModal').classList.add('hidden');
-        }
-
-        function deleteChannel() {
-            const channelId = document.getElementById('deleteChannelModal').dataset.channelId;
-            if (channelId) {
-                fetch(`/api/channels/${channelId}`, {
-                    method: 'DELETE'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        hideDeleteChannelModal();
-                        loadChannels();
-                        if (currentChannel && currentChannel.id === parseInt(channelId)) {
-                            if (channels.length > 0) {
-                                switchChannel(channels[0]);
-                            }
+                    if (currentChannel && currentChannel.id === parseInt(channelId)) {
+                        if (channels.length > 0) {
+                            switchChannel(channels[0]);
                         }
-                    } else {
-                        alert('Ошибка удаления канала: ' + data.error);
                     }
-                })
-                .catch(error => {
-                    console.error('Ошибка:', error);
-                    alert('Ошибка удаления канала');
-                });
-            }
-        }
-
-        function showUserManagementModal() {
-            const container = document.getElementById('userList');
-            container.innerHTML = allUsers.map(user => {
-                const isCurrentUser = user.id === currentUser.id;
-                return `
-                    <div class="member-item" style="justify-content: space-between;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div class="member-avatar">
-                                ${(user.display_name || user.username).charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                                <div class="member-name">${user.display_name || user.username}</div>
-                                <div style="color: var(--text-muted); font-size: 12px;">@${user.username}</div>
-                            </div>
-                            ${user.is_admin ? '<div class="admin-badge">ADMIN</div>' : ''}
-                        </div>
-                        ${!isCurrentUser ? `
-                            <button class="message-action-btn danger" onclick="deleteUser(${user.id})" title="Удалить пользователя">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        ` : ''}
-                    </div>
-                `;
-            }).join('');
-            
-            document.getElementById('userManagementModal').classList.remove('hidden');
-        }
-
-        function hideUserManagementModal() {
-            document.getElementById('userManagementModal').classList.add('hidden');
-        }
-
-        function deleteUser(userId) {
-            if (confirm('Вы уверены, что хотите удалить этого пользователя? Все его сообщения будут удалены.')) {
-                fetch(`/api/users/${userId}`, {
-                    method: 'DELETE'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        loadAllUsers();
-                        showUserManagementModal();
-                    } else {
-                        alert('Ошибка удаления пользователя: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Ошибка:', error);
-                    alert('Ошибка удаления пользователя');
-                });
-            }
-        }
-
-        function showEditServerModal() {
-            document.getElementById('editServerNameInput').value = 'ClorumMax';
-            document.getElementById('editServerModal').classList.remove('hidden');
-        }
-
-        function hideEditServerModal() {
-            document.getElementById('editServerModal').classList.add('hidden');
-        }
-
-        function updateServer() {
-            const name = document.getElementById('editServerNameInput').value.trim();
-            if (name) {
-                document.getElementById('serverHeader').textContent = name;
-                hideEditServerModal();
-            }
-        }
-
-        function deleteMessage(messageId) {
-            if (confirm('Удалить это сообщение?')) {
-                fetch(`/api/messages/${messageId}`, {
-                    method: 'DELETE'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-                        if (messageElement) {
-                            messageElement.style.animation = 'fadeOut 0.3s ease';
-                            setTimeout(() => messageElement.remove(), 300);
-                        }
-                    } else {
-                        alert('Ошибка удаления сообщения: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Ошибка:', error);
-                    alert('Ошибка удаления сообщения');
-                });
-            }
-        }
-
-        function deleteDirectMessage(messageId) {
-            if (confirm('Удалить это сообщение?')) {
-                fetch(`/api/direct-messages/${messageId}`, {
-                    method: 'DELETE'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-                        if (messageElement) {
-                            messageElement.style.animation = 'fadeOut 0.3s ease';
-                            setTimeout(() => messageElement.remove(), 300);
-                        }
-                    } else {
-                        alert('Ошибка удаления сообщения: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Ошибка:', error);
-                    alert('Ошибка удаления сообщения');
-                });
-            }
-        }
-
-        function showProfileModal() {
-            document.getElementById('profileDisplayName').value = currentUser.displayName;
-            document.getElementById('profileModal').classList.remove('hidden');
-        }
-
-        function hideProfileModal() {
-            document.getElementById('profileModal').classList.add('hidden');
-        }
-
-        async function saveProfile() {
-            const displayName = document.getElementById('profileDisplayName').value.trim();
-            const avatarFile = document.getElementById('avatarUpload').files[0];
-            
-            let avatar = currentUser.avatar;
-            if (avatarFile) {
-                avatar = await new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => resolve(e.target.result);
-                    reader.readAsDataURL(avatarFile);
-                });
-            }
-            
-            try {
-                const response = await fetch('/api/profile', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        userId: currentUser.id,
-                        displayName: displayName || currentUser.username,
-                        avatar: avatar || 'default'
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    currentUser.displayName = displayName || currentUser.username;
-                    currentUser.avatar = avatar || 'default';
-                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                    updateUserProfile();
-                    hideProfileModal();
-                    location.reload();
-                }
-            } catch (error) {
-                console.error('Ошибка сохранения профиля:', error);
-            }
-        }
-
-        // ОБРАБОТЧИКИ SOCKET
-        socket.on('online_users', (users) => {
-            onlineUsers = users;
-            renderMembers();
-            if (currentView === 'friends') {
-                renderFriendsList();
-            }
-        });
-
-        socket.on('new_channel_message', (message) => {
-            if (currentChannel && message.channel_id === currentChannel.id) {
-                const container = document.getElementById('messagesContainer');
-                const avatar = message.avatar_url && message.avatar_url !== 'default' ? 
-                    `<img src="${message.avatar_url}" alt="Avatar">` : 
-                    (message.display_name || message.username).charAt(0).toUpperCase();
-                
-                const isImage = message.content.startsWith('data:image');
-                const messageContent = isImage ? 
-                    `<img src="${message.content}" class="message-image" onclick="viewImage('${message.content}')">` : 
-                    message.content;
-                
-                const canDelete = currentUser && (currentUser.isAdmin || currentUser.id === message.user_id);
-                
-                const messageElement = document.createElement('div');
-                messageElement.className = 'message';
-                messageElement.setAttribute('data-message-id', message.id);
-                messageElement.innerHTML = `
-                    <div class="message-avatar">${avatar}</div>
-                    <div class="message-content">
-                        <div class="message-header">
-                            <span class="message-author">${message.display_name || message.username}</span>
-                            <span class="message-time">${new Date(message.created_at).toLocaleTimeString('ru-RU', { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                            })}</span>
-                        </div>
-                        <div class="message-text">${messageContent}</div>
-                    </div>
-                    ${canDelete ? `
-                        <div class="message-actions">
-                            <button class="message-action-btn" onclick="deleteMessage(${message.id})">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    ` : ''}
-                `;
-                
-                container.appendChild(messageElement);
-                container.scrollTop = container.scrollHeight;
-            }
-        });
-
-        socket.on('new_direct_message', (message) => {
-            if (currentDMUser && (message.from_user === currentDMUser.id || message.from_user === currentUser.id)) {
-                const container = document.getElementById('messagesContainer');
-                const avatar = message.from_avatar && message.from_avatar !== 'default' ? 
-                    `<img src="${message.from_avatar}" alt="Avatar">` : 
-                    (message.from_display_name || message.from_username).charAt(0).toUpperCase();
-                
-                const isImage = message.content.startsWith('data:image');
-                const messageContent = isImage ? 
-                    `<img src="${message.content}" class="message-image" onclick="viewImage('${message.content}')">` : 
-                    message.content;
-                
-                const canDelete = currentUser && currentUser.id === message.from_user;
-                
-                const messageElement = document.createElement('div');
-                messageElement.className = 'message';
-                messageElement.setAttribute('data-message-id', message.id);
-                messageElement.innerHTML = `
-                    <div class="message-avatar">${avatar}</div>
-                    <div class="message-content">
-                        <div class="message-header">
-                            <span class="message-author">${message.from_display_name || message.from_username}</span>
-                            <span class="message-time">${new Date(message.created_at).toLocaleTimeString('ru-RU', { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                            })}</span>
-                        </div>
-                        <div class="message-text">${messageContent}</div>
-                    </div>
-                    ${canDelete ? `
-                        <div class="message-actions">
-                            <button class="message-action-btn" onclick="deleteDirectMessage(${message.id})">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    ` : ''}
-                `;
-                
-                container.appendChild(messageElement);
-                container.scrollTop = container.scrollHeight;
-            }
-        });
-
-        socket.on('channel_created', (channel) => {
-            channels.push(channel);
-            renderChannels();
-        });
-
-        socket.on('channel_updated', (channel) => {
-            const index = channels.findIndex(c => c.id === channel.id);
-            if (index !== -1) {
-                channels[index] = channel;
-                renderChannels();
-                if (currentChannel && currentChannel.id === channel.id) {
-                    currentChannel = channel;
-                    document.getElementById('currentChannelName').textContent = `#${channel.name}`;
-                }
-            }
-        });
-
-        socket.on('channel_deleted', (channelId) => {
-            channels = channels.filter(c => c.id !== channelId);
-            renderChannels();
-            if (currentChannel && currentChannel.id === channelId) {
-                if (channels.length > 0) {
-                    switchChannel(channels[0]);
                 } else {
-                    document.getElementById('messagesContainer').innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Нет доступных каналов</div>';
-                    document.getElementById('currentChannelName').textContent = 'Нет канала';
+                    alert('Ошибка удаления канала: ' + data.error);
                 }
-            }
-        });
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Ошибка удаления канала');
+            });
+        }
+    }
 
-        socket.on('message_error', (error) => {
-            alert('Ошибка отправки сообщения: ' + error);
-        });
+    function showUserManagementModal() {
+        const container = document.getElementById('userList');
+        container.innerHTML = allUsers.map(user => {
+            const isCurrentUser = user.id === currentUser.id;
+            return `
+                <div class="member-item" style="justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div class="member-avatar">
+                            ${(user.display_name || user.username).charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <div class="member-name">${user.display_name || user.username}</div>
+                            <div style="color: var(--text-muted); font-size: 12px;">@${user.username}</div>
+                        </div>
+                        ${user.is_admin ? '<div class="admin-badge">ADMIN</div>' : ''}
+                    </div>
+                    ${!isCurrentUser ? `
+                        <button class="message-action-btn danger" onclick="deleteUser(${user.id})" title="Удалить пользователя">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+        
+        document.getElementById('userManagementModal').classList.remove('hidden');
+    }
 
+    function hideUserManagementModal() {
+        document.getElementById('userManagementModal').classList.add('hidden');
+    }
 
-            // Функция для отладки состояния
-function debugState() {
-    console.log('=== DEBUG STATE ===');
-    console.log('Current View:', currentView);
-    console.log('Current Channel:', currentChannel);
-    console.log('Current DM User:', currentDMUser);
-    console.log('Current User:', currentUser);
-    console.log('Channels count:', channels.length);
-    console.log('==================');
-}
+    function deleteUser(userId) {
+        if (confirm('Вы уверены, что хотите удалить этого пользователя? Все его сообщения будут удалены.')) {
+            fetch(`/api/users/${userId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadAllUsers();
+                    showUserManagementModal();
+                } else {
+                    alert('Ошибка удаления пользователя: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Ошибка удаления пользователя');
+            });
+        }
+    }
 
-// Вызывай debugState() когда нужно посмотреть что происходит
+    function showEditServerModal() {
+        document.getElementById('editServerNameInput').value = 'ClorumMax';
+        document.getElementById('editServerModal').classList.remove('hidden');
+    }
 
+    function hideEditServerModal() {
+        document.getElementById('editServerModal').classList.add('hidden');
+    }
+
+    function updateServer() {
+        const name = document.getElementById('editServerNameInput').value.trim();
+        if (name) {
+            document.getElementById('serverHeader').textContent = name;
+            hideEditServerModal();
+        }
+    }
+
+    function deleteMessage(messageId) {
+        if (confirm('Удалить это сообщение?')) {
+            fetch(`/api/messages/${messageId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                    if (messageElement) {
+                        messageElement.style.animation = 'fadeOut 0.3s ease';
+                        setTimeout(() => messageElement.remove(), 300);
+                    }
+                } else {
+                    alert('Ошибка удаления сообщения: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Ошибка удаления сообщения');
+            });
+        }
+    }
+
+    function deleteDirectMessage(messageId) {
+        if (confirm('Удалить это сообщение?')) {
+            fetch(`/api/direct-messages/${messageId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                    if (messageElement) {
+                        messageElement.style.animation = 'fadeOut 0.3s ease';
+                        setTimeout(() => messageElement.remove(), 300);
+                    }
+                } else {
+                    alert('Ошибка удаления сообщения: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Ошибка удаления сообщения');
+            });
+        }
+    }
+
+    function showProfileModal() {
+        document.getElementById('profileDisplayName').value = currentUser.displayName;
+        document.getElementById('profileModal').classList.remove('hidden');
+    }
+
+    function hideProfileModal() {
+        document.getElementById('profileModal').classList.add('hidden');
+    }
+
+    async function saveProfile() {
+        const displayName = document.getElementById('profileDisplayName').value.trim();
+        const avatarFile = document.getElementById('avatarUpload').files[0];
+        
+        let avatar = currentUser.avatar;
+        if (avatarFile) {
+            avatar = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.readAsDataURL(avatarFile);
+            });
+        }
+        
+        try {
+            const response = await fetch('/api/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: currentUser.id,
+                    displayName: displayName || currentUser.username,
+                    avatar: avatar || 'default'
+                })
+            });
             
-
-        // ЗАГРУЗКА ПРИЛОЖЕНИЯ
-        window.addEventListener('load', function() {
-            const savedUser = localStorage.getItem('currentUser');
-            if (savedUser) {
-                currentUser = JSON.parse(savedUser);
-                initApp();
+            const data = await response.json();
+            
+            if (data.success) {
+                currentUser.displayName = displayName || currentUser.username;
+                currentUser.avatar = avatar || 'default';
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                updateUserProfile();
+                hideProfileModal();
+                location.reload();
             }
-        });
-    </script>
+        } catch (error) {
+            console.error('Ошибка сохранения профиля:', error);
+        }
+    }
+
+    // ОБРАБОТЧИКИ SOCKET
+    socket.on('online_users', (users) => {
+        onlineUsers = users;
+        renderMembers();
+        if (currentView === 'friends') {
+            renderFriendsList();
+        }
+    });
+
+    socket.on('new_channel_message', (message) => {
+        if (currentChannel && message.channel_id === currentChannel.id) {
+            const container = document.getElementById('messagesContainer');
+            const avatar = message.avatar_url && message.avatar_url !== 'default' ? 
+                `<img src="${message.avatar_url}" alt="Avatar">` : 
+                (message.display_name || message.username).charAt(0).toUpperCase();
+            
+            const isImage = message.content.startsWith('data:image');
+            const messageContent = isImage ? 
+                `<img src="${message.content}" class="message-image" onclick="viewImage('${message.content}')">` : 
+                message.content;
+            
+            const canDelete = currentUser && (currentUser.isAdmin || currentUser.id === message.user_id);
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message';
+            messageElement.setAttribute('data-message-id', message.id);
+            messageElement.innerHTML = `
+                <div class="message-avatar">${avatar}</div>
+                <div class="message-content">
+                    <div class="message-header">
+                        <span class="message-author">${message.display_name || message.username}</span>
+                        <span class="message-time">${new Date(message.created_at).toLocaleTimeString('ru-RU', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        })}</span>
+                    </div>
+                    <div class="message-text">${messageContent}</div>
+                </div>
+                ${canDelete ? `
+                    <div class="message-actions">
+                        <button class="message-action-btn" onclick="deleteMessage(${message.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                ` : ''}
+            `;
+            
+            container.appendChild(messageElement);
+            container.scrollTop = container.scrollHeight;
+        }
+    });
+
+    socket.on('new_direct_message', (message) => {
+        if (currentDMUser && (message.from_user === currentDMUser.id || message.from_user === currentUser.id)) {
+            const container = document.getElementById('messagesContainer');
+            const avatar = message.from_avatar && message.from_avatar !== 'default' ? 
+                `<img src="${message.from_avatar}" alt="Avatar">` : 
+                (message.from_display_name || message.from_username).charAt(0).toUpperCase();
+            
+            const isImage = message.content.startsWith('data:image');
+            const messageContent = isImage ? 
+                `<img src="${message.content}" class="message-image" onclick="viewImage('${message.content}')">` : 
+                message.content;
+            
+            const canDelete = currentUser && currentUser.id === message.from_user;
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message';
+            messageElement.setAttribute('data-message-id', message.id);
+            messageElement.innerHTML = `
+                <div class="message-avatar">${avatar}</div>
+                <div class="message-content">
+                    <div class="message-header">
+                        <span class="message-author">${message.from_display_name || message.from_username}</span>
+                        <span class="message-time">${new Date(message.created_at).toLocaleTimeString('ru-RU', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        })}</span>
+                    </div>
+                    <div class="message-text">${messageContent}</div>
+                </div>
+                ${canDelete ? `
+                    <div class="message-actions">
+                        <button class="message-action-btn" onclick="deleteDirectMessage(${message.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                ` : ''}
+            `;
+            
+            container.appendChild(messageElement);
+            container.scrollTop = container.scrollHeight;
+        }
+    });
+
+    socket.on('channel_created', (channel) => {
+        channels.push(channel);
+        renderChannels();
+    });
+
+    socket.on('channel_updated', (channel) => {
+        const index = channels.findIndex(c => c.id === channel.id);
+        if (index !== -1) {
+            channels[index] = channel;
+            renderChannels();
+            if (currentChannel && currentChannel.id === channel.id) {
+                currentChannel = channel;
+                document.getElementById('currentChannelName').textContent = `#${channel.name}`;
+            }
+        }
+    });
+
+    socket.on('channel_deleted', (channelId) => {
+        channels = channels.filter(c => c.id !== channelId);
+        renderChannels();
+        if (currentChannel && currentChannel.id === channelId) {
+            if (channels.length > 0) {
+                switchChannel(channels[0]);
+            } else {
+                document.getElementById('messagesContainer').innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Нет доступных каналов</div>';
+                document.getElementById('currentChannelName').textContent = 'Нет канала';
+            }
+        }
+    });
+
+    socket.on('message_error', (error) => {
+        alert('Ошибка отправки сообщения: ' + error);
+    });
+
+    // ЗАГРУЗКА ПРИЛОЖЕНИЯ
+    window.addEventListener('load', function() {
+        const savedUser = localStorage.getItem('currentUser');
+        if (savedUser) {
+            currentUser = JSON.parse(savedUser);
+            initApp();
+        }
+    });
+</script>
 </body>
 </html>
