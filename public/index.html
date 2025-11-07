@@ -40,6 +40,28 @@
             height: 100vh;
         }
 
+        /* Анимации */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes messageSlide {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
         .servers-sidebar {
             width: 72px;
             background: var(--background-tertiary);
@@ -59,15 +81,22 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             color: var(--text-normal);
             position: relative;
             font-size: 18px;
         }
 
-        .server-icon:hover, .server-icon.active {
+        .server-icon:hover {
             background: var(--brand);
             border-radius: 35%;
+            transform: scale(1.1);
+        }
+
+        .server-icon.active {
+            background: var(--brand);
+            border-radius: 35%;
+            animation: pulse 2s infinite;
         }
 
         .server-icon.active::before {
@@ -87,6 +116,7 @@
             background: var(--background-secondary);
             display: flex;
             flex-direction: column;
+            animation: slideIn 0.3s ease-out;
         }
 
         .server-header {
@@ -113,11 +143,13 @@
             padding: 6px;
             border-radius: 4px;
             font-size: 14px;
+            transition: all 0.2s;
         }
 
         .channel-action-btn:hover, .logout-btn:hover {
             color: var(--text-normal);
             background: var(--background-accent);
+            transform: scale(1.1);
         }
 
         .user-profile {
@@ -128,6 +160,11 @@
             border-top: 1px solid var(--background-tertiary);
             margin-top: auto;
             cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .user-profile:hover {
+            background: var(--background-accent);
         }
 
         .user-avatar {
@@ -144,6 +181,11 @@
             font-size: 14px;
             overflow: hidden;
             flex-shrink: 0;
+            transition: transform 0.2s;
+        }
+
+        .user-profile:hover .user-avatar {
+            transform: scale(1.1);
         }
 
         .user-avatar img {
@@ -197,12 +239,19 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            transition: all 0.2s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             font-size: 14px;
             min-height: 28px;
+            animation: slideIn 0.3s ease-out;
         }
 
-        .channel-item:hover, .channel-item.active {
+        .channel-item:hover {
+            background: var(--brand);
+            color: #000000;
+            transform: translateX(5px);
+        }
+
+        .channel-item.active {
             background: var(--brand);
             color: #000000;
         }
@@ -245,6 +294,7 @@
             border-radius: 4px;
             margin: 2px 0;
             font-size: 14px;
+            transition: all 0.2s;
         }
 
         .add-channel:hover {
@@ -265,6 +315,12 @@
             padding: 8px 12px;
             color: var(--text-normal);
             outline: none;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            background: var(--background-accent);
+            transform: scale(1.02);
         }
 
         .search-results {
@@ -278,6 +334,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            transition: background 0.2s;
         }
 
         .search-result-item:hover {
@@ -289,6 +346,7 @@
             background: var(--background-primary);
             display: flex;
             flex-direction: column;
+            animation: fadeIn 0.3s ease-out;
         }
 
         .chat-header {
@@ -311,14 +369,16 @@
             padding: 16px;
             overflow-y: auto;
             background: var(--background-primary);
+            scroll-behavior: smooth;
         }
 
         .message {
             padding: 8px 0;
             display: flex;
-            transition: background 0.1s;
+            transition: all 0.3s ease;
             margin: 4px 0;
             position: relative;
+            animation: messageSlide 0.3s ease-out;
         }
 
         .message:hover {
@@ -343,6 +403,11 @@
             font-size: 16px;
             flex-shrink: 0;
             overflow: hidden;
+            transition: transform 0.2s;
+        }
+
+        .message:hover .message-avatar {
+            transform: scale(1.05);
         }
 
         .message-avatar img {
@@ -377,6 +442,7 @@
             color: var(--text-normal);
             line-height: 1.4;
             font-size: 16px;
+            word-wrap: break-word;
         }
 
         .message-image {
@@ -385,6 +451,11 @@
             border-radius: 8px;
             margin-top: 8px;
             cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .message-image:hover {
+            transform: scale(1.02);
         }
 
         .message-actions {
@@ -397,7 +468,7 @@
             display: flex;
             gap: 4px;
             opacity: 0;
-            transition: opacity 0.2s;
+            transition: all 0.2s;
             border: 1px solid var(--background-accent);
         }
 
@@ -409,11 +480,13 @@
             padding: 4px;
             border-radius: 2px;
             font-size: 12px;
+            transition: all 0.2s;
         }
 
         .message-action-btn:hover {
             color: var(--text-normal);
             background: var(--background-accent);
+            transform: scale(1.1);
         }
 
         .message-input-container {
@@ -438,10 +511,12 @@
             resize: none;
             outline: none;
             font-family: inherit;
+            transition: all 0.3s ease;
         }
 
         .message-input:focus {
             background: var(--background-accent);
+            transform: scale(1.01);
         }
 
         .message-input::placeholder {
@@ -465,10 +540,12 @@
             display: flex;
             align-items: center;
             gap: 6px;
+            transition: all 0.3s ease;
         }
 
         .file-upload-btn:hover {
             background: var(--brand-hover);
+            transform: translateY(-1px);
         }
 
         .file-input {
@@ -480,6 +557,7 @@
             max-height: 150px;
             border-radius: 8px;
             display: none;
+            animation: fadeIn 0.3s ease;
         }
 
         .members-sidebar {
@@ -487,6 +565,7 @@
             background: var(--background-secondary);
             padding: 16px;
             overflow-y: auto;
+            animation: slideIn 0.3s ease-out;
         }
 
         .members-title {
@@ -506,10 +585,13 @@
             margin: 2px 0;
             cursor: pointer;
             gap: 8px;
+            transition: all 0.2s;
+            animation: slideIn 0.3s ease-out;
         }
 
         .member-item:hover {
             background: var(--background-accent);
+            transform: translateX(3px);
         }
 
         .member-avatar {
@@ -525,6 +607,11 @@
             font-size: 12px;
             flex-shrink: 0;
             overflow: hidden;
+            transition: transform 0.2s;
+        }
+
+        .member-item:hover .member-avatar {
+            transform: scale(1.1);
         }
 
         .member-avatar img {
@@ -548,6 +635,7 @@
             border-radius: 50%;
             background: var(--success);
             flex-shrink: 0;
+            animation: pulse 2s infinite;
         }
 
         .auth-screen {
@@ -561,6 +649,7 @@
             align-items: center;
             justify-content: center;
             z-index: 1000;
+            animation: fadeIn 0.5s ease;
         }
 
         .auth-container {
@@ -569,6 +658,7 @@
             border-radius: 8px;
             width: 480px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            animation: fadeIn 0.5s ease;
         }
 
         .auth-tabs {
@@ -583,6 +673,7 @@
             color: var(--text-muted);
             font-weight: 500;
             border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
         }
 
         .auth-tab.active {
@@ -608,10 +699,12 @@
             margin-bottom: 16px;
             outline: none;
             font-size: 16px;
+            transition: all 0.3s ease;
         }
 
         .auth-input:focus {
             border-color: var(--brand);
+            transform: scale(1.02);
         }
 
         .auth-button {
@@ -623,12 +716,13 @@
             color: var(--text-normal);
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.3s ease;
             font-size: 16px;
         }
 
         .auth-button:hover {
             background: var(--brand-hover);
+            transform: translateY(-1px);
         }
 
         .auth-error {
@@ -636,6 +730,7 @@
             text-align: center;
             margin-bottom: 16px;
             font-size: 14px;
+            animation: fadeIn 0.3s ease;
         }
 
         .modal {
@@ -649,6 +744,7 @@
             align-items: center;
             justify-content: center;
             z-index: 2000;
+            animation: fadeIn 0.3s ease;
         }
 
         .modal-content {
@@ -656,6 +752,7 @@
             padding: 24px;
             border-radius: 8px;
             width: 400px;
+            animation: fadeIn 0.3s ease;
         }
 
         .modal-title {
@@ -673,6 +770,11 @@
             color: var(--text-normal);
             margin-bottom: 16px;
             outline: none;
+            transition: all 0.2s;
+        }
+
+        .modal-input:focus {
+            border-color: var(--brand);
         }
 
         .modal-buttons {
@@ -687,6 +789,11 @@
             border-radius: 4px;
             cursor: pointer;
             font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .modal-button:hover {
+            transform: translateY(-1px);
         }
 
         .modal-button.primary {
@@ -715,6 +822,50 @@
             border-radius: 4px;
             font-size: 10px;
             margin-left: 8px;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            color: var(--text-muted);
+        }
+
+        .loading::after {
+            content: '';
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--text-muted);
+            border-top: 2px solid var(--brand);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .permission-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 8px 0;
+        }
+
+        .permission-checkbox input {
+            width: 16px;
+            height: 16px;
+        }
+
+        .typing-indicator {
+            color: var(--text-muted);
+            font-style: italic;
+            padding: 8px 16px;
+            font-size: 14px;
+            animation: fadeIn 0.3s ease;
         }
     </style>
 </head>
@@ -789,6 +940,9 @@
                     <button class="channel-action-btn" onclick="showEditChannelModal()" title="Редактировать канал">
                         <i class="fas fa-edit"></i>
                     </button>
+                    <button class="channel-action-btn" onclick="showChannelSettingsModal()" title="Настройки канала">
+                        <i class="fas fa-cog"></i>
+                    </button>
                     <button class="channel-action-btn" onclick="showDeleteChannelModal()" title="Удалить канал">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -859,6 +1013,24 @@
         </div>
     </div>
 
+    <div id="channelSettingsModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-title">Настройки канала</div>
+            <div class="permission-checkbox">
+                <input type="checkbox" id="readPermission" checked>
+                <label for="readPermission">Разрешить чтение</label>
+            </div>
+            <div class="permission-checkbox">
+                <input type="checkbox" id="writePermission" checked>
+                <label for="writePermission">Разрешить написание</label>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-button secondary" onclick="hideChannelSettingsModal()">Отмена</button>
+                <button class="modal-button primary" onclick="saveChannelPermissions()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
     <div id="deleteChannelModal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-title">Удалить канал</div>
@@ -881,6 +1053,16 @@
         </div>
     </div>
 
+    <div id="userManagementModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-title">Управление пользователями</div>
+            <div id="userList" style="max-height: 300px; overflow-y: auto; margin-bottom: 16px;"></div>
+            <div class="modal-buttons">
+                <button class="modal-button secondary" onclick="hideUserManagementModal()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         let socket = io();
@@ -892,6 +1074,7 @@
         let onlineUsers = [];
         let allUsers = [];
         let selectedImage = null;
+        let isLoadingMessages = false;
 
         // ФУНКЦИИ АВТОРИЗАЦИИ
         function switchAuthTab(tab) {
@@ -1027,14 +1210,8 @@
                 }
                 allUsers = await response.json();
                 console.log('Успешно загружены пользователи:', allUsers.length);
-                
-                // Проверяем данные
-                allUsers.forEach(user => {
-                    console.log(`Пользователь: ${user.username} (ID: ${user.id})`);
-                });
             } catch (error) {
                 console.error('Ошибка загрузки пользователей:', error);
-                // Показываем тестовых пользователей если API не работает
                 allUsers = [
                     { id: 1, username: 'Lenkov', display_name: 'Lenkov', avatar_url: 'default', is_admin: true },
                     { id: 2, username: '9nge', display_name: '9nge', avatar_url: 'default', is_admin: true },
@@ -1048,10 +1225,6 @@
             currentView = view;
             document.querySelectorAll('.server-icon').forEach(icon => icon.classList.remove('active'));
             event.target.classList.add('active');
-            
-            console.log('Переключение на вид:', view);
-            console.log('Все пользователи:', allUsers);
-            console.log('Онлайн пользователи:', onlineUsers);
             
             if (view === 'server') {
                 document.getElementById('serverHeader').textContent = 'ClorumMax';
@@ -1079,6 +1252,10 @@
             
             textChannels.forEach(channel => {
                 const isActive = currentChannel && currentChannel.id === channel.id;
+                const permissions = typeof channel.permissions === 'string' 
+                    ? JSON.parse(channel.permissions) 
+                    : channel.permissions;
+                
                 html += `
                     <div class="channel-item text ${isActive ? 'active' : ''}" 
                          onclick="switchChannel(${JSON.stringify(channel).replace(/"/g, '&quot;')})">
@@ -1087,6 +1264,9 @@
                             <div class="channel-actions-small">
                                 <button class="message-action-btn" onclick="event.stopPropagation(); showEditChannelModal(${channel.id})">
                                     <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="message-action-btn" onclick="event.stopPropagation(); showChannelSettingsModal(${channel.id})">
+                                    <i class="fas fa-cog"></i>
                                 </button>
                                 <button class="message-action-btn" onclick="event.stopPropagation(); showDeleteChannelModal(${channel.id})">
                                     <i class="fas fa-trash"></i>
@@ -1099,6 +1279,7 @@
             
             if (currentUser && currentUser.isAdmin) {
                 html += '<div class="add-channel" onclick="showCreateChannelModal()">+ Создать канал</div>';
+                html += '<div class="add-channel" onclick="showUserManagementModal()">👥 Управление пользователями</div>';
             }
             
             container.innerHTML = html;
@@ -1106,17 +1287,7 @@
 
         function renderFriendsList() {
             const container = document.getElementById('channelsList');
-            
-            // Фильтруем текущего пользователя
-            const otherUsers = allUsers.filter(user => {
-                const isCurrentUser = user.id === currentUser.id;
-                if (isCurrentUser) {
-                    console.log('Фильтруем текущего пользователя:', user.username);
-                }
-                return !isCurrentUser;
-            });
-            
-            console.log('Пользователи для отображения в ЛС:', otherUsers);
+            const otherUsers = allUsers.filter(user => user.id !== currentUser.id);
             
             let html = '<div class="channel-category">Все пользователи</div>';
             
@@ -1135,8 +1306,6 @@
                         `<img src="${user.avatar_url}" alt="${displayName}">` : 
                         displayName.charAt(0).toUpperCase();
                     
-                    console.log(`Рендерим пользователя: ${displayName} (ID: ${user.id}), онлайн: ${isOnline}`);
-                    
                     html += `
                         <div class="channel-item dm" onclick="openDM(${user.id})" title="Написать ${displayName}">
                             <div class="member-avatar">${avatar}</div>
@@ -1151,8 +1320,12 @@
         }
 
         async function switchChannel(channel) {
+            if (isLoadingMessages) return;
+            
+            isLoadingMessages = true;
             currentChannel = channel;
             currentDMUser = null;
+            
             document.getElementById('currentChannelName').textContent = `#${channel.name}`;
             document.getElementById('messageInput').placeholder = `Написать сообщение в #${channel.name}`;
             
@@ -1164,16 +1337,30 @@
             
             renderChannels();
             
+            // Показываем индикатор загрузки
+            const container = document.getElementById('messagesContainer');
+            container.innerHTML = '<div class="loading">Загрузка сообщений...</div>';
+            
             try {
                 const response = await fetch(`/api/channels/${channel.id}/messages`);
                 const messages = await response.json();
-                renderMessages(messages);
+                
+                // Небольшая задержка для плавности
+                setTimeout(() => {
+                    renderMessages(messages);
+                    isLoadingMessages = false;
+                }, 100);
             } catch (error) {
                 console.error('Ошибка загрузки сообщений:', error);
+                container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Ошибка загрузки сообщений</div>';
+                isLoadingMessages = false;
             }
         }
 
         async function openDM(userId) {
+            if (isLoadingMessages) return;
+            
+            isLoadingMessages = true;
             const user = allUsers.find(u => u.id === userId);
             currentDMUser = user;
             currentChannel = null;
@@ -1182,12 +1369,23 @@
             document.getElementById('messageInput').placeholder = `Написать сообщение для ${user.display_name || user.username}`;
             document.getElementById('channelActions').style.display = 'none';
             
+            // Показываем индикатор загрузки
+            const container = document.getElementById('messagesContainer');
+            container.innerHTML = '<div class="loading">Загрузка сообщений...</div>';
+            
             try {
                 const response = await fetch(`/api/direct-messages/${currentUser.id}/${userId}`);
                 const messages = await response.json();
-                renderDMMessages(messages);
+                
+                // Небольшая задержка для плавности
+                setTimeout(() => {
+                    renderDMMessages(messages);
+                    isLoadingMessages = false;
+                }, 100);
             } catch (error) {
                 console.error('Ошибка загрузки ЛС:', error);
+                container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Ошибка загрузки сообщений</div>';
+                isLoadingMessages = false;
             }
         }
 
@@ -1402,7 +1600,7 @@
             }
         }
 
-        // УПРАВЛЕНИЕ КАНАЛАМИ
+        // УПРАВЛЕНИЕ КАНАЛАМИ И ПОЛЬЗОВАТЕЛЯМИ
         function showCreateChannelModal() {
             document.getElementById('createChannelModal').classList.remove('hidden');
         }
@@ -1417,7 +1615,8 @@
                 socket.emit('create_channel', { 
                     name, 
                     type: 'text',
-                    createdBy: currentUser.id 
+                    createdBy: currentUser.id,
+                    permissions: { read: true, write: true }
                 });
                 hideCreateChannelModal();
             }
@@ -1442,6 +1641,48 @@
             if (name && channelId) {
                 socket.emit('update_channel', { channelId: parseInt(channelId), name });
                 hideEditChannelModal();
+            }
+        }
+
+        function showChannelSettingsModal(channelId) {
+            const channel = channelId ? channels.find(c => c.id === channelId) : currentChannel;
+            if (channel) {
+                const permissions = typeof channel.permissions === 'string' 
+                    ? JSON.parse(channel.permissions) 
+                    : channel.permissions;
+                
+                document.getElementById('readPermission').checked = permissions.read;
+                document.getElementById('writePermission').checked = permissions.write;
+                document.getElementById('channelSettingsModal').dataset.channelId = channel.id;
+                document.getElementById('channelSettingsModal').classList.remove('hidden');
+            }
+        }
+
+        function hideChannelSettingsModal() {
+            document.getElementById('channelSettingsModal').classList.add('hidden');
+        }
+
+        async function saveChannelPermissions() {
+            const channelId = document.getElementById('channelSettingsModal').dataset.channelId;
+            const readPermission = document.getElementById('readPermission').checked;
+            const writePermission = document.getElementById('writePermission').checked;
+            
+            try {
+                const response = await fetch(`/api/channels/${channelId}/permissions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        permissions: { read: readPermission, write: writePermission }
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    hideChannelSettingsModal();
+                    loadChannels();
+                }
+            } catch (error) {
+                console.error('Ошибка сохранения прав:', error);
             }
         }
 
@@ -1484,6 +1725,59 @@
             }
         }
 
+        function showUserManagementModal() {
+            const container = document.getElementById('userList');
+            container.innerHTML = allUsers.map(user => {
+                const isCurrentUser = user.id === currentUser.id;
+                return `
+                    <div class="member-item" style="justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="member-avatar">
+                                ${(user.display_name || user.username).charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <div class="member-name">${user.display_name || user.username}</div>
+                                <div style="color: var(--text-muted); font-size: 12px;">@${user.username}</div>
+                            </div>
+                            ${user.is_admin ? '<div class="admin-badge">ADMIN</div>' : ''}
+                        </div>
+                        ${!isCurrentUser ? `
+                            <button class="message-action-btn danger" onclick="deleteUser(${user.id})" title="Удалить пользователя">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('userManagementModal').classList.remove('hidden');
+        }
+
+        function hideUserManagementModal() {
+            document.getElementById('userManagementModal').classList.add('hidden');
+        }
+
+        function deleteUser(userId) {
+            if (confirm('Вы уверены, что хотите удалить этого пользователя? Все его сообщения будут удалены.')) {
+                fetch(`/api/users/${userId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        loadAllUsers();
+                        showUserManagementModal();
+                    } else {
+                        alert('Ошибка удаления пользователя: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка:', error);
+                    alert('Ошибка удаления пользователя');
+                });
+            }
+        }
+
         function showEditServerModal() {
             document.getElementById('editServerNameInput').value = 'ClorumMax';
             document.getElementById('editServerModal').classList.remove('hidden');
@@ -1511,7 +1805,8 @@
                     if (data.success) {
                         const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
                         if (messageElement) {
-                            messageElement.remove();
+                            messageElement.style.animation = 'fadeOut 0.3s ease';
+                            setTimeout(() => messageElement.remove(), 300);
                         }
                     } else {
                         alert('Ошибка удаления сообщения: ' + data.error);
@@ -1534,7 +1829,8 @@
                     if (data.success) {
                         const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
                         if (messageElement) {
-                            messageElement.remove();
+                            messageElement.style.animation = 'fadeOut 0.3s ease';
+                            setTimeout(() => messageElement.remove(), 300);
                         }
                     } else {
                         alert('Ошибка удаления сообщения: ' + data.error);
@@ -1618,28 +1914,31 @@
                 
                 const canDelete = currentUser && (currentUser.isAdmin || currentUser.id === message.user_id);
                 
-                container.innerHTML += `
-                    <div class="message" data-message-id="${message.id}">
-                        <div class="message-avatar">${avatar}</div>
-                        <div class="message-content">
-                            <div class="message-header">
-                                <span class="message-author">${message.display_name || message.username}</span>
-                                <span class="message-time">${new Date(message.created_at).toLocaleTimeString('ru-RU', { 
-                                    hour: '2-digit', 
-                                    minute: '2-digit' 
-                                })}</span>
-                            </div>
-                            <div class="message-text">${messageContent}</div>
+                const messageElement = document.createElement('div');
+                messageElement.className = 'message';
+                messageElement.setAttribute('data-message-id', message.id);
+                messageElement.innerHTML = `
+                    <div class="message-avatar">${avatar}</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-author">${message.display_name || message.username}</span>
+                            <span class="message-time">${new Date(message.created_at).toLocaleTimeString('ru-RU', { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                            })}</span>
                         </div>
-                        ${canDelete ? `
-                            <div class="message-actions">
-                                <button class="message-action-btn" onclick="deleteMessage(${message.id})">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        ` : ''}
+                        <div class="message-text">${messageContent}</div>
                     </div>
+                    ${canDelete ? `
+                        <div class="message-actions">
+                            <button class="message-action-btn" onclick="deleteMessage(${message.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    ` : ''}
                 `;
+                
+                container.appendChild(messageElement);
                 container.scrollTop = container.scrollHeight;
             }
         });
@@ -1658,28 +1957,31 @@
                 
                 const canDelete = currentUser && currentUser.id === message.from_user;
                 
-                container.innerHTML += `
-                    <div class="message" data-message-id="${message.id}">
-                        <div class="message-avatar">${avatar}</div>
-                        <div class="message-content">
-                            <div class="message-header">
-                                <span class="message-author">${message.from_display_name || message.from_username}</span>
-                                <span class="message-time">${new Date(message.created_at).toLocaleTimeString('ru-RU', { 
-                                    hour: '2-digit', 
-                                    minute: '2-digit' 
-                                })}</span>
-                            </div>
-                            <div class="message-text">${messageContent}</div>
+                const messageElement = document.createElement('div');
+                messageElement.className = 'message';
+                messageElement.setAttribute('data-message-id', message.id);
+                messageElement.innerHTML = `
+                    <div class="message-avatar">${avatar}</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-author">${message.from_display_name || message.from_username}</span>
+                            <span class="message-time">${new Date(message.created_at).toLocaleTimeString('ru-RU', { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                            })}</span>
                         </div>
-                        ${canDelete ? `
-                            <div class="message-actions">
-                                <button class="message-action-btn" onclick="deleteDirectMessage(${message.id})">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        ` : ''}
+                        <div class="message-text">${messageContent}</div>
                     </div>
+                    ${canDelete ? `
+                        <div class="message-actions">
+                            <button class="message-action-btn" onclick="deleteDirectMessage(${message.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    ` : ''}
                 `;
+                
+                container.appendChild(messageElement);
                 container.scrollTop = container.scrollHeight;
             }
         });
@@ -1712,6 +2014,10 @@
                     document.getElementById('currentChannelName').textContent = 'Нет канала';
                 }
             }
+        });
+
+        socket.on('message_error', (error) => {
+            alert('Ошибка отправки сообщения: ' + error);
         });
 
         // ЗАГРУЗКА ПРИЛОЖЕНИЯ
