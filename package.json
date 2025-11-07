@@ -1,6 +1,7 @@
 {
-  "name": "clorummax",
-  "version": "1.0.0", 
+  "name": "ClorumMax",
+  "version": "1.0.0",
+  "description": "Messenger Max by Clorum",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
