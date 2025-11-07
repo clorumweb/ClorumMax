@@ -1301,14 +1301,15 @@
             }
         }
 
-        async function loadAllUsers() {
-            try {
-                const response = await fetch('/api/users');
-                allUsers = await response.json();
-            } catch (error) {
-                console.error('Ошибка загрузки пользователей:', error);
-            }
-        }
+       async function loadAllUsers() {
+    try {
+        const response = await fetch('/api/users/all');
+        allUsers = await response.json();
+        console.log('Загружены пользователи:', allUsers); // Для отладки
+    } catch (error) {
+        console.error('Ошибка загрузки пользователей:', error);
+    }
+}
 
         function switchView(view) {
             currentView = view;
@@ -1367,33 +1368,39 @@
         }
 
         function renderFriendsList() {
-            const container = document.getElementById('channelsList');
-            const otherUsers = allUsers.filter(user => user.id !== currentUser.id);
+    const container = document.getElementById('channelsList');
+    const otherUsers = allUsers.filter(user => user.id !== currentUser.id);
+    
+    console.log('Рендерим друзей:', otherUsers); // Для отладки
+    
+    let html = '<div class="channel-category">Все пользователи</div>';
+    
+    if (otherUsers.length === 0) {
+        html += '<div style="color: var(--text-muted); padding: 10px; text-align: center;">Пользователи не найдены</div>';
+    } else {
+        otherUsers.forEach(user => {
+            const isOnline = onlineUsers.some(u => u.id === user.id);
+            const avatar = user.avatar_url && user.avatar_url !== 'default' ? 
+                `<img src="${user.avatar_url}" alt="Avatar">` : 
+                (user.display_name || user.username).charAt(0).toUpperCase();
             
-            let html = '<div class="channel-category">Все пользователи</div>';
-            
-            otherUsers.forEach(user => {
-                const isOnline = onlineUsers.some(u => u.id === user.id);
-                const avatar = user.avatar_url && user.avatar_url !== 'default' ? 
-                    `<img src="${user.avatar_url}" alt="Avatar">` : 
-                    user.display_name?.charAt(0).toUpperCase() || user.username.charAt(0).toUpperCase();
-                
-                html += `
-                    <div class="channel-item dm" onclick="openDM(${user.id})">
-                        <div class="member-avatar">${avatar}</div>
-                        <span class="member-name">${user.display_name || user.username}</span>
-                        ${isOnline ? '<div class="online-indicator"></div>' : ''}
-                        ${isOnline ? `
-                            <button class="message-action-btn" onclick="event.stopPropagation(); startCall(${user.id})" title="Позвонить">
-                                <i class="fas fa-phone"></i>
-                            </button>
-                        ` : ''}
-                    </div>
-                `;
-            });
-            
-            container.innerHTML = html;
-        }
+            html += `
+                <div class="channel-item dm" onclick="openDM(${user.id})">
+                    <div class="member-avatar">${avatar}</div>
+                    <span class="member-name">${user.display_name || user.username}</span>
+                    ${isOnline ? '<div class="online-indicator"></div>' : ''}
+                    ${isOnline ? `
+                        <button class="message-action-btn" onclick="event.stopPropagation(); startCall(${user.id})" title="Позвонить">
+                            <i class="fas fa-phone"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+        });
+    }
+    
+    container.innerHTML = html;
+}
 
         async function switchChannel(channel) {
             currentChannel = channel;
