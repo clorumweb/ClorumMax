@@ -1,0 +1,2318 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ClorumMax</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --background-primary: #0f0f0f;
+            --background-secondary: #1a1a1a;
+            --background-tertiary: #2a2a2a;
+            --background-accent: #333333;
+            --text-normal: #ffffff;
+            --text-muted: #b3b3b3;
+            --text-link: #ff7b00;
+            --interactive-normal: #cccccc;
+            --interactive-hover: #ffffff;
+            --interactive-active: #ff7b00;
+            --brand: #ff7b00;
+            --brand-hover: #e66a00;
+            --success: #23a55a;
+            --danger: #ed4245;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--background-primary);
+            color: var(--text-normal);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app {
+            display: flex;
+            height: 100vh;
+        }
+
+        .servers-sidebar {
+            width: 72px;
+            background: var(--background-tertiary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 12px 0;
+            gap: 8px;
+        }
+
+        .server-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--background-secondary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-normal);
+            position: relative;
+            font-size: 18px;
+        }
+
+        .server-icon:hover, .server-icon.active {
+            background: var(--brand);
+            border-radius: 35%;
+        }
+
+        .server-icon.active::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 20px;
+            background: var(--brand);
+            border-radius: 0 4px 4px 0;
+        }
+
+        .channels-sidebar {
+            width: 240px;
+            background: var(--background-secondary);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .server-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--background-tertiary);
+            font-weight: 600;
+            color: var(--text-normal);
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .channel-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .channel-action-btn, .logout-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .channel-action-btn:hover, .logout-btn:hover {
+            color: var(--text-normal);
+            background: var(--background-accent);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            background: var(--background-secondary);
+            border-top: 1px solid var(--background-tertiary);
+            margin-top: auto;
+            cursor: pointer;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--brand);
+            margin-right: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 14px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .user-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-tag {
+            color: var(--text-muted);
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .channels-list {
+            flex: 1;
+            padding: 8px;
+            overflow-y: auto;
+        }
+
+        .channel-category {
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 600;
+            padding: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .channel-item {
+            padding: 6px 8px;
+            margin: 2px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.2s;
+            font-size: 14px;
+            min-height: 28px;
+        }
+
+        .channel-item:hover, .channel-item.active {
+            background: var(--brand);
+            color: #000000;
+        }
+
+        .channel-item.text::before {
+            content: "#";
+            margin-right: 6px;
+            font-weight: bold;
+        }
+
+        .channel-item.dm {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 8px;
+        }
+
+        .channel-item.dm .member-avatar {
+            width: 20px;
+            height: 20px;
+            font-size: 10px;
+            margin-right: 0;
+        }
+
+        .channel-actions-small {
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .channel-item:hover .channel-actions-small {
+            opacity: 1;
+        }
+
+        .add-channel {
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 6px 8px;
+            border-radius: 4px;
+            margin: 2px 0;
+            font-size: 14px;
+        }
+
+        .add-channel:hover {
+            color: var(--text-normal);
+            background: var(--background-accent);
+        }
+
+        .search-container {
+            padding: 16px;
+            border-bottom: 1px solid var(--background-tertiary);
+        }
+
+        .search-input {
+            width: 100%;
+            background: var(--background-tertiary);
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            color: var(--text-normal);
+            outline: none;
+        }
+
+        .search-results {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .search-result-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .search-result-item:hover {
+            background: var(--background-accent);
+        }
+
+        .chat-area {
+            flex: 1;
+            background: var(--background-primary);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--background-tertiary);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--background-primary);
+        }
+
+        .channel-name {
+            font-weight: 600;
+            color: var(--text-normal);
+            font-size: 16px;
+        }
+
+        .messages-container {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            background: var(--background-primary);
+        }
+
+        .message {
+            padding: 8px 0;
+            display: flex;
+            transition: background 0.1s;
+            margin: 4px 0;
+            position: relative;
+        }
+
+        .message:hover {
+            background: var(--background-secondary);
+        }
+
+        .message:hover .message-actions {
+            opacity: 1;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--brand);
+            margin-right: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 16px;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .message-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .message-content {
+            flex: 1;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .message-author {
+            font-weight: 500;
+            color: var(--text-normal);
+            margin-right: 8px;
+            font-size: 16px;
+        }
+
+        .message-time {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .message-text {
+            color: var(--text-normal);
+            line-height: 1.4;
+            font-size: 16px;
+        }
+
+        .message-image {
+            max-width: 400px;
+            max-height: 300px;
+            border-radius: 8px;
+            margin-top: 8px;
+            cursor: pointer;
+        }
+
+        .message-actions {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            background: var(--background-secondary);
+            border-radius: 4px;
+            padding: 4px;
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            border: 1px solid var(--background-accent);
+        }
+
+        .message-action-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 2px;
+            font-size: 12px;
+        }
+
+        .message-action-btn:hover {
+            color: var(--text-normal);
+            background: var(--background-accent);
+        }
+
+        .message-input-container {
+            padding: 16px;
+            background: var(--background-primary);
+        }
+
+        .message-input-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .message-input {
+            width: 100%;
+            background: var(--background-secondary);
+            border: none;
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: var(--text-normal);
+            font-size: 16px;
+            resize: none;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .message-input:focus {
+            background: var(--background-accent);
+        }
+
+        .message-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .message-input-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .file-upload-btn {
+            background: var(--brand);
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .file-upload-btn:hover {
+            background: var(--brand-hover);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .image-preview {
+            max-width: 200px;
+            max-height: 150px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .members-sidebar {
+            width: 240px;
+            background: var(--background-secondary);
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        .members-title {
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .member-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            border-radius: 4px;
+            margin: 2px 0;
+            cursor: pointer;
+            gap: 8px;
+        }
+
+        .member-item:hover {
+            background: var(--background-accent);
+        }
+
+        .member-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--brand);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 12px;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .member-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .member-name {
+            color: var(--text-normal);
+            font-size: 14px;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .online-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            flex-shrink: 0;
+        }
+
+        .auth-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--background-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .auth-container {
+            background: var(--background-secondary);
+            padding: 32px;
+            border-radius: 8px;
+            width: 480px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--background-tertiary);
+        }
+
+        .auth-tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-weight: 500;
+            border-bottom: 2px solid transparent;
+        }
+
+        .auth-tab.active {
+            color: var(--text-normal);
+            border-bottom-color: var(--brand);
+        }
+
+        .auth-title {
+            text-align: center;
+            margin-bottom: 20px;
+            color: var(--text-normal);
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .auth-input {
+            width: 100%;
+            background: var(--background-tertiary);
+            border: 1px solid var(--background-tertiary);
+            border-radius: 4px;
+            padding: 12px;
+            color: var(--text-normal);
+            margin-bottom: 16px;
+            outline: none;
+            font-size: 16px;
+        }
+
+        .auth-input:focus {
+            border-color: var(--brand);
+        }
+
+        .auth-button {
+            width: 100%;
+            background: var(--brand);
+            border: none;
+            border-radius: 4px;
+            padding: 12px;
+            color: var(--text-normal);
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 16px;
+        }
+
+        .auth-button:hover {
+            background: var(--brand-hover);
+        }
+
+        .auth-error {
+            color: var(--danger);
+            text-align: center;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .modal-content {
+            background: var(--background-secondary);
+            padding: 24px;
+            border-radius: 8px;
+            width: 400px;
+        }
+
+        .modal-title {
+            margin-bottom: 16px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-input {
+            width: 100%;
+            background: var(--background-tertiary);
+            border: 1px solid var(--background-tertiary);
+            border-radius: 4px;
+            padding: 12px;
+            color: var(--text-normal);
+            margin-bottom: 16px;
+            outline: none;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .modal-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .modal-button.primary {
+            background: var(--brand);
+            color: white;
+        }
+
+        .modal-button.secondary {
+            background: var(--background-accent);
+            color: var(--text-normal);
+        }
+
+        .modal-button.danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .admin-badge {
+            background: var(--danger);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            margin-left: 8px;
+        }
+
+        /* СТИЛИ ДЛЯ ПРОСТЫХ РАБОЧИХ ЗВОНКОВ */
+        .call-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(26, 26, 26, 0.95);
+            z-index: 3000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .call-container {
+            text-align: center;
+            padding: 40px;
+            border-radius: 16px;
+            background: var(--background-secondary);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            max-width: 400px;
+            width: 90%;
+            position: relative;
+        }
+
+        .call-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: var(--brand);
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            color: white;
+            border: 3px solid var(--brand);
+            overflow: hidden;
+        }
+
+        .call-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .call-avatar.ringing {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .call-info {
+            margin-bottom: 30px;
+        }
+
+        .caller-name {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: white;
+        }
+
+        .call-status {
+            font-size: 16px;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+
+        .call-timer {
+            font-size: 14px;
+            color: var(--brand);
+            font-weight: 600;
+        }
+
+        .call-controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .call-button {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            transition: all 0.2s;
+            color: white;
+        }
+
+        .call-button:hover {
+            transform: scale(1.1);
+        }
+
+        .call-button.end-call {
+            background: var(--danger);
+        }
+
+        .call-button.accept-call {
+            background: var(--success);
+        }
+
+        .call-button.toggle-audio {
+            background: var(--brand);
+        }
+
+        .call-button.toggle-audio.muted {
+            background: var(--background-tertiary);
+        }
+
+        /* Уведомление о входящем звонке */
+        .call-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--background-secondary);
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid var(--brand);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            z-index: 2500;
+            display: none;
+            min-width: 280px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .call-notification-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .call-notification-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--brand);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 16px;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .call-notification-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .call-notification-info {
+            flex: 1;
+        }
+
+        .call-notification-name {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 4px;
+            color: white;
+        }
+
+        .call-notification-type {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .call-notification-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .notification-button {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
+            font-size: 14px;
+            color: white;
+        }
+
+        .notification-button.accept {
+            background: var(--success);
+        }
+
+        .notification-button.decline {
+            background: var(--danger);
+        }
+
+        .notification-button:hover {
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body>
+    <div id="authScreen" class="auth-screen">
+        <div class="auth-container">
+            <h1 class="auth-title">ClorumMax</h1>
+            <div class="auth-tabs">
+                <div class="auth-tab active" onclick="switchAuthTab('login')">Вход</div>
+                <div class="auth-tab" onclick="switchAuthTab('register')">Регистрация</div>
+            </div>
+            
+            <div id="loginForm">
+                <input type="text" id="loginUsername" class="auth-input" placeholder="Юзернейм" maxlength="32">
+                <input type="password" id="loginPassword" class="auth-input" placeholder="Пароль">
+                <div id="loginError" class="auth-error"></div>
+                <button onclick="login()" class="auth-button">Продолжить</button>
+            </div>
+            
+            <div id="registerForm" style="display: none;">
+                <input type="text" id="registerUsername" class="auth-input" placeholder="Юзернейм (мин. 3 символа)" maxlength="32">
+                <input type="password" id="registerPassword" class="auth-input" placeholder="Пароль (мин. 6 символов)">
+                <div id="registerError" class="auth-error"></div>
+                <button onclick="register()" class="auth-button">Зарегистрироваться</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="mainApp" class="app hidden">
+        <div class="servers-sidebar">
+            <div class="server-icon active" onclick="switchView('server')" title="Сервер">
+                <i class="fas fa-comments"></i>
+            </div>
+            <div class="server-icon" onclick="switchView('friends')" title="Личные сообщения">
+                <i class="fas fa-user-friends"></i>
+            </div>
+        </div>
+
+        <div class="channels-sidebar">
+            <div class="server-header">
+                <span id="serverHeader">ClorumMax</span>
+                <div class="channel-actions">
+                    <button class="channel-action-btn" onclick="showEditServerModal()" title="Редактировать сервер">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    <button class="logout-btn" onclick="logout()" title="Выйти из аккаунта">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="search-container" id="searchContainer" style="display: none;">
+                <input type="text" id="searchInput" class="search-input" placeholder="Поиск пользователей..." oninput="searchUsers()">
+                <div class="search-results" id="searchResults"></div>
+            </div>
+            
+            <div class="channels-list" id="channelsList"></div>
+            
+            <div class="user-profile" onclick="showProfileModal()">
+                <div class="user-avatar" id="userAvatar"></div>
+                <div class="user-info">
+                    <div class="user-name" id="userDisplayName">User</div>
+                    <div class="user-tag" id="userTag">@user</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-area">
+            <div class="chat-header">
+                <div class="channel-name" id="currentChannelName">#general</div>
+                <div class="channel-actions" id="channelActions" style="display: none;">
+                    <button class="channel-action-btn" onclick="showEditChannelModal()" title="Редактировать канал">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="channel-action-btn" onclick="showDeleteChannelModal()" title="Удалить канал">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="messages-container" id="messagesContainer"></div>
+            
+            <div class="message-input-container">
+                <div class="message-input-wrapper">
+                    <img id="imagePreview" class="image-preview" alt="Preview">
+                    <textarea 
+                        class="message-input" 
+                        id="messageInput"
+                        placeholder="Написать сообщение в #general"
+                        rows="3"
+                        onkeypress="handleMessageKeypress(event)"
+                    ></textarea>
+                    <div class="message-input-actions">
+                        <input type="file" id="fileInput" class="file-input" accept="image/*">
+                        <button class="file-upload-btn" onclick="document.getElementById('fileInput').click()">
+                            <i class="fas fa-paperclip"></i>
+                            Прикрепить фото
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="members-sidebar">
+            <div class="members-title">УЧАСТНИКИ — <span id="onlineCount">0</span></div>
+            <div id="membersList"></div>
+        </div>
+    </div>
+
+    <!-- Модальные окна -->
+    <div id="profileModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-title">Редактировать профиль</div>
+            <input type="text" id="profileDisplayName" class="modal-input" placeholder="Отображаемое имя">
+            <input type="file" id="avatarUpload" class="modal-input" accept="image/*">
+            <div class="modal-buttons">
+                <button class="modal-button secondary" onclick="hideProfileModal()">Отмена</button>
+                <button class="modal-button primary" onclick="saveProfile()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="createChannelModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-title">Создать канал</div>
+            <input type="text" id="channelNameInput" class="modal-input" placeholder="Название канала">
+            <div class="modal-buttons">
+                <button class="modal-button secondary" onclick="hideCreateChannelModal()">Отмена</button>
+                <button class="modal-button primary" onclick="createChannel()">Создать</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="editChannelModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-title">Редактировать канал</div>
+            <input type="text" id="editChannelNameInput" class="modal-input" placeholder="Новое название канала">
+            <div class="modal-buttons">
+                <button class="modal-button secondary" onclick="hideEditChannelModal()">Отмена</button>
+                <button class="modal-button primary" onclick="updateChannel()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="deleteChannelModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-title">Удалить канал</div>
+            <p style="margin-bottom: 16px; color: var(--text-muted);">Вы уверены, что хотите удалить этот канал? Это действие нельзя отменить.</p>
+            <div class="modal-buttons">
+                <button class="modal-button secondary" onclick="hideDeleteChannelModal()">Отмена</button>
+                <button class="modal-button danger" onclick="deleteChannel()">Удалить</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="editServerModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-title">Редактировать сервер</div>
+            <input type="text" id="editServerNameInput" class="modal-input" placeholder="Новое название сервера">
+            <div class="modal-buttons">
+                <button class="modal-button secondary" onclick="hideEditServerModal()">Отмена</button>
+                <button class="modal-button primary" onclick="updateServer()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Окно активного звонка -->
+    <div id="callOverlay" class="call-overlay hidden">
+        <div class="call-container">
+            <div class="call-avatar" id="callAvatar">
+                <i class="fas fa-user"></i>
+            </div>
+            <div class="call-info">
+                <div class="caller-name" id="activeCallName">Имя пользователя</div>
+                <div class="call-status" id="activeCallStatus">Аудиозвонок</div>
+                <div class="call-timer" id="callTimer">00:00</div>
+            </div>
+            <div class="call-controls">
+                <button class="call-button toggle-audio" id="toggleAudio" onclick="toggleAudio()">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <button class="call-button end-call" onclick="endCall()">
+                    <i class="fas fa-phone-slash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Уведомление о входящем звонке -->
+    <div id="callNotification" class="call-notification hidden">
+        <div class="call-notification-header">
+            <div class="call-notification-avatar" id="notificationAvatar">
+                <i class="fas fa-user"></i>
+            </div>
+            <div class="call-notification-info">
+                <div class="call-notification-name" id="callerName"></div>
+                <div class="call-notification-type" id="callType">Входящий аудиозвонок</div>
+            </div>
+        </div>
+        <div class="call-notification-buttons">
+            <button class="notification-button accept" onclick="acceptCall()">
+                <i class="fas fa-phone"></i>
+                Принять
+            </button>
+            <button class="notification-button decline" onclick="declineCall()">
+                <i class="fas fa-phone-slash"></i>
+                Отклонить
+            </button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket = io();
+        let currentUser = null;
+        let currentView = 'server';
+        let currentChannel = null;
+        let currentDMUser = null;
+        let channels = [];
+        let onlineUsers = [];
+        let allUsers = [];
+        let selectedImage = null;
+
+        // ПЕРЕМЕННЫЕ ДЛЯ ЗВОНКОВ
+        let localStream = null;
+        let peerConnection = null;
+        let currentCall = null;
+        let isAudioEnabled = true;
+        let callTimerInterval = null;
+        let callStartTime = null;
+
+        // НАСТРОЙКИ WEBRTC
+        const pcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' }
+            ]
+        };
+
+        // ФУНКЦИИ АВТОРИЗАЦИИ
+        function switchAuthTab(tab) {
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'none';
+            
+            if (tab === 'login') {
+                document.querySelector('.auth-tab:nth-child(1)').classList.add('active');
+                document.getElementById('loginForm').style.display = 'block';
+            } else {
+                document.querySelector('.auth-tab:nth-child(2)').classList.add('active');
+                document.getElementById('registerForm').style.display = 'block';
+            }
+        }
+
+        async function login() {
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const errorDiv = document.getElementById('loginError');
+            
+            errorDiv.textContent = '';
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentUser = data.user;
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    initApp();
+                } else {
+                    errorDiv.textContent = data.error;
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Ошибка соединения';
+            }
+        }
+
+        async function register() {
+            const username = document.getElementById('registerUsername').value.trim();
+            const password = document.getElementById('registerPassword').value;
+            const errorDiv = document.getElementById('registerError');
+            
+            errorDiv.textContent = '';
+            
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    errorDiv.textContent = 'Регистрация успешна! Теперь войдите.';
+                    switchAuthTab('login');
+                    document.getElementById('loginUsername').value = username;
+                } else {
+                    errorDiv.textContent = data.error;
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Ошибка соединения';
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('currentUser');
+            location.reload();
+        }
+
+        // ОСНОВНЫЕ ФУНКЦИИ ПРИЛОЖЕНИЯ
+        async function initApp() {
+            document.getElementById('authScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            
+            updateUserProfile();
+            await loadChannels();
+            await loadAllUsers();
+            
+            socket.emit('user_online', currentUser);
+            
+            if (channels.length > 0) {
+                switchChannel(channels[0]);
+            }
+
+            document.getElementById('fileInput').addEventListener('change', handleImageUpload);
+            document.getElementById('avatarUpload').addEventListener('change', handleAvatarUpload);
+        }
+
+        function updateUserProfile() {
+            document.getElementById('userDisplayName').textContent = currentUser.displayName;
+            document.getElementById('userTag').textContent = `@${currentUser.username}`;
+            
+            const avatarElement = document.getElementById('userAvatar');
+            if (currentUser.avatar && currentUser.avatar !== 'default') {
+                avatarElement.innerHTML = `<img src="${currentUser.avatar}" alt="Avatar">`;
+            } else {
+                avatarElement.textContent = currentUser.displayName.charAt(0).toUpperCase();
+            }
+        }
+
+        async function loadChannels() {
+            try {
+                const response = await fetch('/api/channels');
+                channels = await response.json();
+                renderChannels();
+            } catch (error) {
+                console.error('Ошибка загрузки каналов:', error);
+            }
+        }
+
+        async function loadAllUsers() {
+            try {
+                const response = await fetch('/api/users');
+                allUsers = await response.json();
+            } catch (error) {
+                console.error('Ошибка загрузки пользователей:', error);
+            }
+        }
+
+        function switchView(view) {
+            currentView = view;
+            document.querySelectorAll('.server-icon').forEach(icon => icon.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            if (view === 'server') {
+                document.getElementById('serverHeader').textContent = 'ClorumMax';
+                document.getElementById('searchContainer').style.display = 'none';
+                renderChannels();
+                if (channels.length > 0) {
+                    switchChannel(channels[0]);
+                }
+            } else {
+                document.getElementById('serverHeader').textContent = 'Личные сообщения';
+                document.getElementById('searchContainer').style.display = 'block';
+                renderFriendsList();
+                document.getElementById('messagesContainer').innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Выберите пользователя для начала общения</div>';
+                document.getElementById('currentChannelName').textContent = 'Личные сообщения';
+                document.getElementById('messageInput').placeholder = 'Выберите пользователя';
+                document.getElementById('channelActions').style.display = 'none';
+            }
+        }
+
+        function renderChannels() {
+            const container = document.getElementById('channelsList');
+            const textChannels = channels.filter(c => c.type === 'text');
+            
+            let html = '<div class="channel-category">Текстовые каналы</div>';
+            
+            textChannels.forEach(channel => {
+                const isActive = currentChannel && currentChannel.id === channel.id;
+                html += `
+                    <div class="channel-item text ${isActive ? 'active' : ''}" 
+                         onclick="switchChannel(${JSON.stringify(channel).replace(/"/g, '&quot;')})">
+                        <span>${channel.name}</span>
+                        ${currentUser && currentUser.isAdmin ? `
+                            <div class="channel-actions-small">
+                                <button class="message-action-btn" onclick="event.stopPropagation(); showEditChannelModal(${channel.id})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="message-action-btn" onclick="event.stopPropagation(); showDeleteChannelModal(${channel.id})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            
+            if (currentUser && currentUser.isAdmin) {
+                html += '<div class="add-channel" onclick="showCreateChannelModal()">+ Создать канал</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function renderFriendsList() {
+            const container = document.getElementById('channelsList');
+            const otherUsers = allUsers.filter(user => user.id !== currentUser.id);
+            
+            let html = '<div class="channel-category">Все пользователи</div>';
+            
+            otherUsers.forEach(user => {
+                const isOnline = onlineUsers.some(u => u.id === user.id);
+                const avatar = user.avatar_url && user.avatar_url !== 'default' ? 
+                    `<img src="${user.avatar_url}" alt="Avatar">` : 
+                    user.display_name?.charAt(0).toUpperCase() || user.username.charAt(0).toUpperCase();
+                
+                html += `
+                    <div class="channel-item dm" onclick="openDM(${user.id})">
+                        <div class="member-avatar">${avatar}</div>
+                        <span class="member-name">${user.display_name || user.username}</span>
+                        ${isOnline ? '<div class="online-indicator"></div>' : ''}
+                        ${isOnline ? `
+                            <button class="message-action-btn" onclick="event.stopPropagation(); startCall(${user.id})" title="Позвонить">
+                                <i class="fas fa-phone"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        async function switchChannel(channel) {
+            currentChannel = channel;
+            currentDMUser = null;
+            document.getElementById('currentChannelName').textContent = `#${channel.name}`;
+            document.getElementById('messageInput').placeholder = `Написать сообщение в #${channel.name}`;
+            
+            if (currentUser && currentUser.isAdmin) {
+                document.getElementById('channelActions').style.display = 'flex';
+            } else {
+                document.getElementById('channelActions').style.display = 'none';
+            }
+            
+            renderChannels();
+            
+            try {
+                const response = await fetch(`/api/channels/${channel.id}/messages`);
+                const messages = await response.json();
+                renderMessages(messages);
+            } catch (error) {
+                console.error('Ошибка загрузки сообщений:', error);
+            }
+        }
+
+        async function openDM(userId) {
+            const user = allUsers.find(u => u.id === userId);
+            currentDMUser = user;
+            currentChannel = null;
+            
+            document.getElementById('currentChannelName').textContent = user.display_name || user.username;
+            document.getElementById('messageInput').placeholder = `Написать сообщение для ${user.display_name || user.username}`;
+            document.getElementById('channelActions').style.display = 'none';
+            
+            try {
+                const response = await fetch(`/api/direct-messages/${currentUser.id}/${userId}`);
+                const messages = await response.json();
+                renderDMMessages(messages);
+            } catch (error) {
+                console.error('Ошибка загрузки ЛС:', error);
+            }
+        }
+
+        function renderMessages(messages) {
+            const container = document.getElementById('messagesContainer');
+            
+            if (messages.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Здесь пока нет сообщений</div>';
+                return;
+            }
+            
+            container.innerHTML = messages.map(msg => {
+                const avatar = msg.avatar_url && msg.avatar_url !== 'default' ? 
+                    `<img src="${msg.avatar_url}" alt="Avatar">` : 
+                    (msg.display_name || msg.username).charAt(0).toUpperCase();
+                
+                const isImage = msg.content.startsWith('data:image');
+                const messageContent = isImage ? 
+                    `<img src="${msg.content}" class="message-image" onclick="viewImage('${msg.content}')">` : 
+                    msg.content;
+                
+                const canDelete = currentUser && (currentUser.isAdmin || currentUser.id === msg.user_id);
+                
+                return `
+                    <div class="message" data-message-id="${msg.id}">
+                        <div class="message-avatar">${avatar}</div>
+                        <div class="message-content">
+                            <div class="message-header">
+                                <span class="message-author">${msg.display_name || msg.username}</span>
+                                <span class="message-time">${new Date(msg.created_at).toLocaleTimeString('ru-RU', { 
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                })}</span>
+                            </div>
+                            <div class="message-text">${messageContent}</div>
+                        </div>
+                        ${canDelete ? `
+                            <div class="message-actions">
+                                <button class="message-action-btn" onclick="deleteMessage(${msg.id})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+            
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function renderDMMessages(messages) {
+            const container = document.getElementById('messagesContainer');
+            
+            if (messages.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Здесь пока нет сообщений</div>';
+                return;
+            }
+            
+            container.innerHTML = messages.map(msg => {
+                const avatar = msg.from_avatar && msg.from_avatar !== 'default' ? 
+                    `<img src="${msg.from_avatar}" alt="Avatar">` : 
+                    (msg.from_display_name || msg.from_username).charAt(0).toUpperCase();
+                
+                const isImage = msg.content.startsWith('data:image');
+                const messageContent = isImage ? 
+                    `<img src="${msg.content}" class="message-image" onclick="viewImage('${msg.content}')">` : 
+                    msg.content;
+                
+                const canDelete = currentUser && currentUser.id === msg.from_user;
+                
+                return `
+                    <div class="message" data-message-id="${msg.id}">
+                        <div class="message-avatar">${avatar}</div>
+                        <div class="message-content">
+                            <div class="message-header">
+                                <span class="message-author">${msg.from_display_name || msg.from_username}</span>
+                                <span class="message-time">${new Date(msg.created_at).toLocaleTimeString('ru-RU', { 
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                })}</span>
+                            </div>
+                            <div class="message-text">${messageContent}</div>
+                        </div>
+                        ${canDelete ? `
+                            <div class="message-actions">
+                                <button class="message-action-btn" onclick="deleteDirectMessage(${msg.id})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+            
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function renderMembers() {
+            const container = document.getElementById('membersList');
+            const onlineCount = onlineUsers.length;
+            
+            document.getElementById('onlineCount').textContent = onlineCount;
+            
+            container.innerHTML = onlineUsers.map(user => {
+                const avatar = user.avatar && user.avatar !== 'default' ? 
+                    `<img src="${user.avatar}" alt="Avatar">` : 
+                    user.displayName.charAt(0).toUpperCase();
+                
+                return `
+                    <div class="member-item" onclick="openDM(${user.id})">
+                        <div class="member-avatar">${avatar}</div>
+                        <div class="member-name">${user.displayName}</div>
+                        ${user.isAdmin ? '<div class="admin-badge">ADMIN</div>' : ''}
+                        <div class="online-indicator"></div>
+                        <button class="message-action-btn" onclick="event.stopPropagation(); startCall(${user.id})" title="Позвонить">
+                            <i class="fas fa-phone"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function handleMessageKeypress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            let content = input.value.trim();
+            
+            if (selectedImage) {
+                content = selectedImage;
+            }
+            
+            if (content) {
+                if (currentView === 'server' && currentChannel) {
+                    socket.emit('send_message', {
+                        channelId: currentChannel.id,
+                        content: content
+                    });
+                } else if (currentView === 'friends' && currentDMUser) {
+                    socket.emit('send_direct_message', {
+                        toUserId: currentDMUser.id,
+                        content: content
+                    });
+                }
+                input.value = '';
+                clearImagePreview();
+            }
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    selectedImage = e.target.result;
+                    document.getElementById('imagePreview').src = selectedImage;
+                    document.getElementById('imagePreview').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function handleAvatarUpload(event) {
+            const file = event.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('avatarUpload').dataset.imageData = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function clearImagePreview() {
+            selectedImage = null;
+            document.getElementById('imagePreview').style.display = 'none';
+            document.getElementById('fileInput').value = '';
+        }
+
+        function viewImage(src) {
+            window.open(src, '_blank');
+        }
+
+        async function searchUsers() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (query.length < 2) {
+                document.getElementById('searchResults').innerHTML = '';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/users/search/${query}`);
+                const users = await response.json();
+                
+                const results = document.getElementById('searchResults');
+                results.innerHTML = users.map(user => {
+                    const avatar = user.avatar_url && user.avatar_url !== 'default' ? 
+                        `<img src="${user.avatar_url}" alt="Avatar">` : 
+                        (user.display_name || user.username).charAt(0).toUpperCase();
+                    
+                    return `
+                        <div class="search-result-item" onclick="openDM(${user.id})">
+                            <div class="member-avatar">${avatar}</div>
+                            <div class="member-name">${user.display_name || user.username}</div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Ошибка поиска:', error);
+            }
+        }
+
+        // УПРАВЛЕНИЕ КАНАЛАМИ
+        function showCreateChannelModal() {
+            document.getElementById('createChannelModal').classList.remove('hidden');
+        }
+
+        function hideCreateChannelModal() {
+            document.getElementById('createChannelModal').classList.add('hidden');
+        }
+
+        function createChannel() {
+            const name = document.getElementById('channelNameInput').value.trim();
+            if (name) {
+                socket.emit('create_channel', { name, type: 'text' });
+                hideCreateChannelModal();
+            }
+        }
+
+        function showEditChannelModal(channelId) {
+            const channel = channelId ? channels.find(c => c.id === channelId) : currentChannel;
+            if (channel) {
+                document.getElementById('editChannelNameInput').value = channel.name;
+                document.getElementById('editChannelNameInput').dataset.channelId = channel.id;
+                document.getElementById('editChannelModal').classList.remove('hidden');
+            }
+        }
+
+        function hideEditChannelModal() {
+            document.getElementById('editChannelModal').classList.add('hidden');
+        }
+
+        function updateChannel() {
+            const name = document.getElementById('editChannelNameInput').value.trim();
+            const channelId = document.getElementById('editChannelNameInput').dataset.channelId;
+            if (name && channelId) {
+                socket.emit('update_channel', { channelId: parseInt(channelId), name });
+                hideEditChannelModal();
+            }
+        }
+
+        function showDeleteChannelModal(channelId) {
+            const channel = channelId ? channels.find(c => c.id === channelId) : currentChannel;
+            if (channel) {
+                document.getElementById('deleteChannelModal').dataset.channelId = channel.id;
+                document.getElementById('deleteChannelModal').classList.remove('hidden');
+            }
+        }
+
+        function hideDeleteChannelModal() {
+            document.getElementById('deleteChannelModal').classList.add('hidden');
+        }
+
+        function deleteChannel() {
+            const channelId = document.getElementById('deleteChannelModal').dataset.channelId;
+            if (channelId) {
+                fetch(`/api/channels/${channelId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        hideDeleteChannelModal();
+                        loadChannels();
+                        if (currentChannel && currentChannel.id === parseInt(channelId)) {
+                            if (channels.length > 0) {
+                                switchChannel(channels[0]);
+                            }
+                        }
+                    } else {
+                        alert('Ошибка удаления канала: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка:', error);
+                    alert('Ошибка удаления канала');
+                });
+            }
+        }
+
+        function showEditServerModal() {
+            document.getElementById('editServerNameInput').value = 'ClorumMax';
+            document.getElementById('editServerModal').classList.remove('hidden');
+        }
+
+        function hideEditServerModal() {
+            document.getElementById('editServerModal').classList.add('hidden');
+        }
+
+        function updateServer() {
+            const name = document.getElementById('editServerNameInput').value.trim();
+            if (name) {
+                document.getElementById('serverHeader').textContent = name;
+                hideEditServerModal();
+            }
+        }
+
+        function deleteMessage(messageId) {
+            if (confirm('Удалить это сообщение?')) {
+                fetch(`/api/messages/${messageId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                        if (messageElement) {
+                            messageElement.remove();
+                        }
+                    } else {
+                        alert('Ошибка удаления сообщения: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка:', error);
+                    alert('Ошибка удаления сообщения');
+                });
+            }
+        }
+
+        function deleteDirectMessage(messageId) {
+            if (confirm('Удалить это сообщение?')) {
+                fetch(`/api/direct-messages/${messageId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                        if (messageElement) {
+                            messageElement.remove();
+                        }
+                    } else {
+                        alert('Ошибка удаления сообщения: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка:', error);
+                    alert('Ошибка удаления сообщения');
+                });
+            }
+        }
+
+        function showProfileModal() {
+            document.getElementById('profileDisplayName').value = currentUser.displayName;
+            document.getElementById('profileModal').classList.remove('hidden');
+        }
+
+        function hideProfileModal() {
+            document.getElementById('profileModal').classList.add('hidden');
+        }
+
+        async function saveProfile() {
+            const displayName = document.getElementById('profileDisplayName').value.trim();
+            const avatarFile = document.getElementById('avatarUpload').files[0];
+            
+            let avatar = currentUser.avatar;
+            if (avatarFile) {
+                avatar = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(avatarFile);
+                });
+            }
+            
+            try {
+                const response = await fetch('/api/profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        displayName: displayName || currentUser.username,
+                        avatar: avatar || 'default'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentUser.displayName = displayName || currentUser.username;
+                    currentUser.avatar = avatar || 'default';
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    updateUserProfile();
+                    hideProfileModal();
+                    location.reload();
+                }
+            } catch (error) {
+                console.error('Ошибка сохранения профиля:', error);
+            }
+        }
+
+        // ПРОСТЫЕ РАБОЧИЕ ЗВОНКИ
+        async function startCall(userId) {
+            try {
+                // Отправляем запрос на звонок
+                socket.emit('start_call', { 
+                    toUserId: userId, 
+                    type: 'audio' 
+                });
+                
+                // Сохраняем информацию о звонке
+                currentCall = { 
+                    toUserId: userId, 
+                    type: 'audio',
+                    isInitiator: true
+                };
+                
+                // Показываем окно звонка
+                showCallWindow(userId, true);
+                
+            } catch (error) {
+                console.error('Ошибка начала звонка:', error);
+                alert('Не удалось начать звонок');
+            }
+        }
+
+        function showCallWindow(userId, isInitiator) {
+            const user = allUsers.find(u => u.id === userId);
+            if (!user) return;
+
+            const avatarElement = document.getElementById('callAvatar');
+            const nameElement = document.getElementById('activeCallName');
+            
+            // Устанавливаем аватар (только инициалы, без картинки)
+            const initial = (user.display_name || user.username).charAt(0).toUpperCase();
+            avatarElement.innerHTML = `<span style="font-size: 36px; font-weight: bold;">${initial}</span>`;
+            
+            nameElement.textContent = user.display_name || user.username;
+            
+            // Устанавливаем статус
+            if (isInitiator) {
+                document.getElementById('activeCallStatus').textContent = 'Вызов...';
+                avatarElement.classList.add('ringing');
+            } else {
+                document.getElementById('activeCallStatus').textContent = 'Разговор';
+                startCallTimer();
+            }
+            
+            // Показываем окно звонка
+            document.getElementById('callOverlay').style.display = 'flex';
+        }
+
+        function showIncomingCall(data) {
+            currentCall = data;
+            
+            const avatarElement = document.getElementById('notificationAvatar');
+            const nameElement = document.getElementById('callerName');
+            
+            // Устанавливаем аватар в уведомлении (только инициалы)
+            const initial = (data.fromDisplayName || data.fromUsername).charAt(0).toUpperCase();
+            avatarElement.innerHTML = `<span style="font-size: 16px; font-weight: bold;">${initial}</span>`;
+            
+            nameElement.textContent = data.fromDisplayName || data.fromUsername;
+            
+            // Показываем уведомление
+            document.getElementById('callNotification').classList.remove('hidden');
+        }
+
+        async function acceptCall() {
+            // Скрываем уведомление
+            document.getElementById('callNotification').classList.add('hidden');
+            
+            try {
+                // Запрашиваем доступ к микрофону
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: false, 
+                    audio: true 
+                });
+                
+                // Отправляем подтверждение звонка
+                socket.emit('accept_call', { from: currentCall.from });
+                
+                // Показываем окно звонка
+                showCallWindow(currentCall.fromUserId, false);
+                
+            } catch (error) {
+                console.error('Ошибка принятия звонка:', error);
+                alert('Не удалось получить доступ к микрофону');
+                declineCall();
+            }
+        }
+
+        function declineCall() {
+            // Скрываем уведомление
+            document.getElementById('callNotification').classList.add('hidden');
+            
+            // Отправляем отказ
+            if (currentCall && currentCall.from) {
+                socket.emit('reject_call', { from: currentCall.from });
+            }
+            
+            currentCall = null;
+        }
+
+        function endCall() {
+            // Останавливаем микрофон если был включен
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            
+            // Закрываем WebRTC соединение если было
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            
+            // Останавливаем таймер
+            stopCallTimer();
+            
+            // Скрываем окно звонка
+            document.getElementById('callOverlay').style.display = 'none';
+            document.getElementById('callAvatar').classList.remove('ringing');
+            
+            // Отправляем событие завершения звонка
+            if (currentCall && currentCall.from && !currentCall.isInitiator) {
+                socket.emit('end_call', { to: currentCall.from });
+            }
+            
+            // Сбрасываем состояние
+            currentCall = null;
+            isAudioEnabled = true;
+            updateAudioButton();
+        }
+
+        function toggleAudio() {
+            if (localStream) {
+                const audioTracks = localStream.getAudioTracks();
+                if (audioTracks.length > 0) {
+                    audioTracks[0].enabled = !audioTracks[0].enabled;
+                    isAudioEnabled = audioTracks[0].enabled;
+                    updateAudioButton();
+                    
+                    // Показываем уведомление о состоянии микрофона
+                    showTempMessage(isAudioEnabled ? 'Микрофон включен' : 'Микрофон выключен');
+                }
+            }
+        }
+
+        function updateAudioButton() {
+            const button = document.getElementById('toggleAudio');
+            const icon = button.querySelector('i');
+            
+            if (isAudioEnabled) {
+                icon.className = 'fas fa-microphone';
+                button.classList.remove('muted');
+            } else {
+                icon.className = 'fas fa-microphone-slash';
+                button.classList.add('muted');
+            }
+        }
+
+        function showTempMessage(message) {
+            // Создаем временное сообщение
+            const tempMsg = document.createElement('div');
+            tempMsg.textContent = message;
+            tempMsg.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: var(--background-secondary);
+                color: var(--text-normal);
+                padding: 10px 20px;
+                border-radius: 20px;
+                z-index: 4000;
+                font-size: 14px;
+                opacity: 0;
+                transition: opacity 0.3s;
+            `;
+            
+            document.body.appendChild(tempMsg);
+            
+            // Показываем и скрываем сообщение
+            setTimeout(() => {
+                tempMsg.style.opacity = '1';
+            }, 10);
+            
+            setTimeout(() => {
+                tempMsg.style.opacity = '0';
+                setTimeout(() => {
+                    document.body.removeChild(tempMsg);
+                }, 300);
+            }, 2000);
+        }
+
+        // ТАЙМЕР ЗВОНКА
+        function startCallTimer() {
+            callStartTime = new Date();
+            callTimerInterval = setInterval(updateCallTimer, 1000);
+        }
+
+        function stopCallTimer() {
+            if (callTimerInterval) {
+                clearInterval(callTimerInterval);
+                callTimerInterval = null;
+            }
+            document.getElementById('callTimer').textContent = '00:00';
+        }
+
+        function updateCallTimer() {
+            const now = new Date();
+            const diff = Math.floor((now - callStartTime) / 1000);
+            const minutes = Math.floor(diff / 60).toString().padStart(2, '0');
+            const seconds = (diff % 60).toString().padStart(2, '0');
+            document.getElementById('callTimer').textContent = `${minutes}:${seconds}`;
+        }
+
+        // ПРОСТЫЕ WEBRTC ФУНКЦИИ
+        async function createSimplePeerConnection() {
+            try {
+                peerConnection = new RTCPeerConnection(pcConfig);
+                
+                // Добавляем локальные аудио треки
+                if (localStream) {
+                    localStream.getTracks().forEach(track => {
+                        peerConnection.addTrack(track, localStream);
+                    });
+                }
+                
+                // Обработчик удаленного потока
+                peerConnection.ontrack = (event) => {
+                    const remoteStream = event.streams[0];
+                    
+                    // Создаем скрытый аудио элемент для воспроизведения удаленного звука
+                    const remoteAudio = document.createElement('audio');
+                    remoteAudio.srcObject = remoteStream;
+                    remoteAudio.autoplay = true;
+                    remoteAudio.style.display = 'none';
+                    document.body.appendChild(remoteAudio);
+                    
+                    // Обновляем интерфейс
+                    document.getElementById('activeCallStatus').textContent = 'Разговор';
+                    document.getElementById('callAvatar').classList.remove('ringing');
+                    
+                    // Запускаем таймер
+                    if (currentCall && currentCall.isInitiator) {
+                        startCallTimer();
+                    }
+                };
+                
+                // Обработчик ICE кандидатов
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate && currentCall && currentCall.from) {
+                        socket.emit('webrtc_ice_candidate', {
+                            to: currentCall.from,
+                            candidate: event.candidate
+                        });
+                    }
+                };
+                
+                return peerConnection;
+                
+            } catch (error) {
+                console.error('Ошибка создания PeerConnection:', error);
+                return null;
+            }
+        }
+
+        async function createOffer() {
+            const pc = await createSimplePeerConnection();
+            if (!pc) return;
+            
+            try {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                
+                socket.emit('webrtc_offer', {
+                    to: currentCall.from,
+                    offer: offer
+                });
+            } catch (error) {
+                console.error('Ошибка создания offer:', error);
+            }
+        }
+
+        async function handleOffer(offer) {
+            const pc = await createSimplePeerConnection();
+            if (!pc) return;
+            
+            try {
+                await pc.setRemoteDescription(offer);
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                
+                socket.emit('webrtc_answer', {
+                    to: currentCall.from,
+                    answer: answer
+                });
+            } catch (error) {
+                console.error('Ошибка обработки offer:', error);
+            }
+        }
+
+        // ОБРАБОТЧИКИ WEBRTC
+        socket.on('incoming_call', (data) => {
+            showIncomingCall(data);
+        });
+
+        socket.on('call_accepted', (data) => {
+            document.getElementById('activeCallStatus').textContent = 'Подключение...';
+            createOffer();
+        });
+
+        socket.on('call_rejected', (data) => {
+            alert('Звонок отклонен');
+            endCall();
+        });
+
+        socket.on('call_ended', (data) => {
+            alert('Звонок завершен');
+            endCall();
+        });
+
+        socket.on('webrtc_offer', async (data) => {
+            await handleOffer(data.offer);
+        });
+
+        socket.on('webrtc_answer', async (data) => {
+            if (peerConnection) {
+                try {
+                    await peerConnection.setRemoteDescription(data.answer);
+                } catch (error) {
+                    console.error('Ошибка установки remote description:', error);
+                }
+            }
+        });
+
+        socket.on('webrtc_ice_candidate', async (data) => {
+            if (peerConnection) {
+                try {
+                    await peerConnection.addIceCandidate(data.candidate);
+                } catch (error) {
+                    console.error('Ошибка добавления ICE кандидата:', error);
+                }
+            }
+        });
+
+        socket.on('call_error', (error) => {
+            alert('Ошибка звонка: ' + error);
+            endCall();
+        });
+
+        // ОСТАЛЬНЫЕ ОБРАБОТЧИКИ
+        socket.on('online_users', (users) => {
+            onlineUsers = users;
+            renderMembers();
+            if (currentView === 'friends') {
+                renderFriendsList();
+            }
+        });
+
+        socket.on('new_channel_message', (message) => {
+            if (currentChannel && message.channel_id === currentChannel.id) {
+                const container = document.getElementById('messagesContainer');
+                const avatar = message.avatar_url && message.avatar_url !== 'default' ? 
+                    `<img src="${message.avatar_url}" alt="Avatar">` : 
+                    (message.display_name || message.username).charAt(0).toUpperCase();
+                
+                const isImage = message.content.startsWith('data:image');
+                const messageContent = isImage ? 
+                    `<img src="${message.content}" class="message-image" onclick="viewImage('${message.content}')">` : 
+                    message.content;
+                
+                const canDelete = currentUser && (currentUser.isAdmin || currentUser.id === message.user_id);
+                
+                container.innerHTML += `
+                    <div class="message" data-message-id="${message.id}">
+                        <div class="message-avatar">${avatar}</div>
+                        <div class="message-content">
+                            <div class="message-header">
+                                <span class="message-author">${message.display_name || message.username}</span>
+                                <span class="message-time">${new Date(message.created_at).toLocaleTimeString('ru-RU', { 
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                })}</span>
+                            </div>
+                            <div class="message-text">${messageContent}</div>
+                        </div>
+                        ${canDelete ? `
+                            <div class="message-actions">
+                                <button class="message-action-btn" onclick="deleteMessage(${message.id})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+                container.scrollTop = container.scrollHeight;
+            }
+        });
+
+        socket.on('new_direct_message', (message) => {
+            if (currentDMUser && (message.from_user === currentDMUser.id || message.from_user === currentUser.id)) {
+                const container = document.getElementById('messagesContainer');
+                const avatar = message.from_avatar && message.from_avatar !== 'default' ? 
+                    `<img src="${message.from_avatar}" alt="Avatar">` : 
+                    (message.from_display_name || message.from_username).charAt(0).toUpperCase();
+                
+                const isImage = message.content.startsWith('data:image');
+                const messageContent = isImage ? 
+                    `<img src="${message.content}" class="message-image" onclick="viewImage('${message.content}')">` : 
+                    message.content;
+                
+                const canDelete = currentUser && currentUser.id === message.from_user;
+                
+                container.innerHTML += `
+                    <div class="message" data-message-id="${message.id}">
+                        <div class="message-avatar">${avatar}</div>
+                        <div class="message-content">
+                            <div class="message-header">
+                                <span class="message-author">${message.from_display_name || message.from_username}</span>
+                                <span class="message-time">${new Date(message.created_at).toLocaleTimeString('ru-RU', { 
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                })}</span>
+                            </div>
+                            <div class="message-text">${messageContent}</div>
+                        </div>
+                        ${canDelete ? `
+                            <div class="message-actions">
+                                <button class="message-action-btn" onclick="deleteDirectMessage(${message.id})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+                container.scrollTop = container.scrollHeight;
+            }
+        });
+
+        socket.on('channel_created', (channel) => {
+            channels.push(channel);
+            renderChannels();
+        });
+
+        socket.on('channel_updated', (channel) => {
+            const index = channels.findIndex(c => c.id === channel.id);
+            if (index !== -1) {
+                channels[index] = channel;
+                renderChannels();
+                if (currentChannel && currentChannel.id === channel.id) {
+                    currentChannel = channel;
+                    document.getElementById('currentChannelName').textContent = `#${channel.name}`;
+                }
+            }
+        });
+
+        socket.on('channel_deleted', (channelId) => {
+            channels = channels.filter(c => c.id !== channelId);
+            renderChannels();
+            if (currentChannel && currentChannel.id === channelId) {
+                if (channels.length > 0) {
+                    switchChannel(channels[0]);
+                } else {
+                    document.getElementById('messagesContainer').innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Нет доступных каналов</div>';
+                    document.getElementById('currentChannelName').textContent = 'Нет канала';
+                }
+            }
+        });
+
+        // ЗАГРУЗКА ПРИЛОЖЕНИЯ
+        window.addEventListener('load', function() {
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                initApp();
+            }
+        });
+    </script>
+</body>
+</html>
