@@ -874,22 +874,22 @@
         <div class="auth-container">
             <h1 class="auth-title">ClorumMax</h1>
             <div class="auth-tabs">
-                <div class="auth-tab active" onclick="switchAuthTab('login')">Вход</div>
-                <div class="auth-tab" onclick="switchAuthTab('register')">Регистрация</div>
+<div class="auth-tab active" onclick="switchAuthTab('login')">Вход</div>
+<div class="auth-tab" onclick="switchAuthTab('register')">Регистрация</div>
             </div>
             
             <div id="loginForm">
                 <input type="text" id="loginUsername" class="auth-input" placeholder="Юзернейм" maxlength="32">
                 <input type="password" id="loginPassword" class="auth-input" placeholder="Пароль">
                 <div id="loginError" class="auth-error"></div>
-                <button onclick="login()" class="auth-button">Войти</button>
+                <button type="button" onclick="login()" class="auth-button">Войти</button>
             </div>
             
             <div id="registerForm" style="display: none;">
                 <input type="text" id="registerUsername" class="auth-input" placeholder="Юзернейм (мин. 3 символа)" maxlength="32">
                 <input type="password" id="registerPassword" class="auth-input" placeholder="Пароль (мин. 6 символов)">
                 <div id="registerError" class="auth-error"></div>
-                <button onclick="register()" class="auth-button">Зарегистрироваться</button>
+                <button type="button" onclick="register()" class="auth-button">Зарегистрироваться</button>
             </div>
         </div>
     </div>
@@ -2038,6 +2038,13 @@
             initApp();
         }
     });
+
+    console.log('All functions loaded:', {
+    login: typeof login,
+    register: typeof register, 
+    switchAuthTab: typeof switchAuthTab,
+    switchView: typeof switchView
+});
 </script>
 </body>
 </html>
