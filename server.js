@@ -14,20 +14,18 @@ const io = socketIo(server, {
 
 // КЭШ ДЛЯ МГНОВЕННОГО ОТОБРАЖЕНИЯ
 const onlineUsers = new Map();
-const messageCache = new Map();
 const userCache = new Map();
 
 // ОПТИМИЗАЦИЯ EXPRESS
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Health check для мониторинга
+// Health check
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'OK', 
         users: onlineUsers.size,
-        memory: process.memoryUsage(),
         uptime: process.uptime()
     });
 });
@@ -92,10 +90,11 @@ app.get('/api/channels/:channelId/messages', (req, res) => {
         FROM messages m 
         LEFT JOIN users u ON m.user_id = u.id 
         WHERE m.channel_id = ? 
-        ORDER BY m.created_at ASC
+        ORDER BY m.created_at DESC
+        LIMIT 100
     `, [channelId], (err, messages) => {
         if (err) return res.status(500).json({ error: 'DB error' });
-        res.json(messages);
+        res.json(messages.reverse());
     });
 });
 
@@ -107,10 +106,11 @@ app.get('/api/direct-messages/:fromUserId/:toUserId', (req, res) => {
         FROM direct_messages dm
         LEFT JOIN users u ON dm.from_user = u.id
         WHERE (dm.from_user = ? AND dm.to_user = ?) OR (dm.from_user = ? AND dm.to_user = ?)
-        ORDER BY dm.created_at ASC
+        ORDER BY dm.created_at DESC
+        LIMIT 100
     `, [fromUserId, toUserId, toUserId, fromUserId], (err, messages) => {
         if (err) return res.status(500).json({ error: 'DB error' });
-        res.json(messages);
+        res.json(messages.reverse());
     });
 });
 
@@ -144,6 +144,38 @@ app.post('/api/profile', (req, res) => {
     );
 });
 
+// Удаление пользователя (только для админов)
+app.delete('/api/users/:userId', (req, res) => {
+    const userId = req.params.userId;
+    
+    // Проверяем права администратора (в реальном приложении нужно добавить аутентификацию)
+    db.serialize(() => {
+        // Удаляем сообщения пользователя
+        db.run("DELETE FROM messages WHERE user_id = ?", [userId]);
+        // Удаляем личные сообщения пользователя
+        db.run("DELETE FROM direct_messages WHERE from_user = ? OR to_user = ?", [userId, userId]);
+        // Удаляем пользователя
+        db.run("DELETE FROM users WHERE id = ?", [userId], function(err) {
+            if (err) return res.status(500).json({ error: 'DB error' });
+            res.json({ success: true });
+        });
+    });
+});
+
+// Обновление прав канала
+app.post('/api/channels/:channelId/permissions', (req, res) => {
+    const channelId = req.params.channelId;
+    const { permissions } = req.body;
+    
+    db.run("UPDATE channels SET permissions = ? WHERE id = ?", 
+        [JSON.stringify(permissions), channelId], 
+        function(err) {
+            if (err) return res.status(500).json({ error: 'DB error' });
+            res.json({ success: true });
+        }
+    );
+});
+
 // Поиск пользователей
 app.get('/api/users/search/:query', (req, res) => {
     const query = `%${req.params.query}%`;
@@ -156,9 +188,19 @@ app.get('/api/users/search/:query', (req, res) => {
     );
 });
 
+// Получение всех пользователей для ЛС
+app.get('/api/users/all', (req, res) => {
+    db.all("SELECT id, username, display_name, avatar_url, is_admin FROM users ORDER BY username", 
+        (err, users) => {
+            if (err) return res.status(500).json({ error: 'DB error' });
+            res.json(users);
+        }
+    );
+});
+
 // 📦 ОПТИМИЗИРОВАННЫЕ ЗАПРОСЫ ДАННЫХ
 app.get('/api/channels', (req, res) => {
-    db.all("SELECT id, name, type FROM channels ORDER BY created_at", (err, channels) => {
+    db.all("SELECT id, name, type, permissions FROM channels ORDER BY created_at", (err, channels) => {
         if (err) return res.status(500).json({ error: 'DB error' });
         res.json(channels);
     });
@@ -206,17 +248,19 @@ io.on('connection', (socket) => {
 
     // Создание канала
     socket.on('create_channel', (data) => {
-        db.run("INSERT INTO channels (name, type, created_by) VALUES (?, ?, ?)",
-            [data.name, data.type, data.createdBy || 1],
+        db.run("INSERT INTO channels (name, type, created_by, permissions) VALUES (?, ?, ?, ?)",
+            [data.name, data.type, data.createdBy, JSON.stringify(data.permissions || {read: true, write: true})],
             function(err) {
                 if (err) {
                     console.error('Channel creation error:', err);
+                    socket.emit('channel_error', 'Failed to create channel');
                     return;
                 }
                 const newChannel = {
                     id: this.lastID,
                     name: data.name,
-                    type: data.type
+                    type: data.type,
+                    permissions: data.permissions || {read: true, write: true}
                 };
                 io.emit('channel_created', newChannel);
             }
@@ -247,45 +291,62 @@ io.on('connection', (socket) => {
         const user = onlineUsers.get(socket.id);
         if (!user) return;
 
-        // МГНОВЕННОЕ ОТОБРАЖЕНИЕ (не ждем базу)
-        const tempMessage = {
-            id: Date.now(),
-            channel_id: data.channelId,
-            user_id: user.id,
-            username: user.username,
-            display_name: user.displayName,
-            avatar_url: user.avatar,
-            content: data.content,
-            created_at: new Date().toISOString(),
-            temp: true
-        };
-        
-        // Мгновенная отправка всем
-        io.emit('new_channel_message', tempMessage);
+        // Проверяем права на запись в канал
+        db.get("SELECT permissions FROM channels WHERE id = ?", [data.channelId], (err, channel) => {
+            if (err || !channel) {
+                socket.emit('message_error', 'Channel not found');
+                return;
+            }
 
-        // Асинхронное сохранение в базу (без блокировки)
-        setTimeout(() => {
-            db.run(
-                "INSERT INTO messages (channel_id, user_id, username, content) VALUES (?, ?, ?, ?)",
-                [data.channelId, user.id, user.username, data.content],
-                function(err) {
-                    if (err) {
-                        console.error('Save error:', err);
-                        socket.emit('message_error', 'Failed to save');
-                        return;
+            const permissions = typeof channel.permissions === 'string' 
+                ? JSON.parse(channel.permissions) 
+                : channel.permissions;
+
+            if (!permissions.write) {
+                socket.emit('message_error', 'No write permissions in this channel');
+                return;
+            }
+
+            // МГНОВЕННОЕ ОТОБРАЖЕНИЕ
+            const tempMessage = {
+                id: Date.now(),
+                channel_id: data.channelId,
+                user_id: user.id,
+                username: user.username,
+                display_name: user.displayName,
+                avatar_url: user.avatar,
+                content: data.content,
+                created_at: new Date().toISOString(),
+                temp: true
+            };
+            
+            // Мгновенная отправка всем
+            io.emit('new_channel_message', tempMessage);
+
+            // Асинхронное сохранение в базу
+            setTimeout(() => {
+                db.run(
+                    "INSERT INTO messages (channel_id, user_id, username, content) VALUES (?, ?, ?, ?)",
+                    [data.channelId, user.id, user.username, data.content],
+                    function(err) {
+                        if (err) {
+                            console.error('Save error:', err);
+                            socket.emit('message_error', 'Failed to save');
+                            return;
+                        }
+                        
+                        // Заменяем временное сообщение на постоянное
+                        const realMessage = {
+                            ...tempMessage,
+                            id: this.lastID,
+                            temp: false
+                        };
+                        
+                        io.emit('message_updated', realMessage);
                     }
-                    
-                    // Заменяем временное сообщение на постоянное
-                    const realMessage = {
-                        ...tempMessage,
-                        id: this.lastID,
-                        temp: false
-                    };
-                    
-                    io.emit('message_updated', realMessage);
-                }
-            );
-        }, 50);
+                );
+            }, 50);
+        });
     });
 
     // 🚀 БЫСТРАЯ ОТПРАВКА ЛИЧНЫХ СООБЩЕНИЙ
@@ -339,65 +400,6 @@ io.on('connection', (socket) => {
         }, 50);
     });
 
-    // 📞 ОБРАБОТЧИКИ ЗВОНКОВ
-    socket.on('start_call', (data) => {
-        const fromUser = onlineUsers.get(socket.id);
-        const recipient = Array.from(onlineUsers.values()).find(u => u.id === data.toUserId);
-            
-        if (recipient) {
-            io.to(recipient.socketId).emit('incoming_call', {
-                from: socket.id,
-                fromUserId: fromUser.id,
-                fromUsername: fromUser.username,
-                fromDisplayName: fromUser.displayName,
-                type: data.type
-            });
-        }
-    });
-
-    socket.on('accept_call', (data) => {
-        io.to(data.from).emit('call_accepted', { to: socket.id });
-    });
-
-    socket.on('reject_call', (data) => {
-        io.to(data.from).emit('call_rejected');
-    });
-
-    socket.on('end_call', (data) => {
-        io.to(data.to).emit('call_ended');
-    });
-
-    // 📞 WebRTC ОБРАБОТЧИКИ
-    socket.on('webrtc_offer', (data) => {
-        const recipient = Array.from(onlineUsers.values()).find(u => u.socketId === data.to);
-        if (recipient) {
-            io.to(recipient.socketId).emit('webrtc_offer', {
-                offer: data.offer,
-                from: socket.id
-            });
-        }
-    });
-
-    socket.on('webrtc_answer', (data) => {
-        const recipient = Array.from(onlineUsers.values()).find(u => u.socketId === data.to);
-        if (recipient) {
-            io.to(recipient.socketId).emit('webrtc_answer', {
-                answer: data.answer,
-                from: socket.id
-            });
-        }
-    });
-
-    socket.on('webrtc_ice_candidate', (data) => {
-        const recipient = Array.from(onlineUsers.values()).find(u => u.socketId === data.to);
-        if (recipient) {
-            io.to(recipient.socketId).emit('webrtc_ice_candidate', {
-                candidate: data.candidate,
-                from: socket.id
-            });
-        }
-    });
-
     socket.on('disconnect', () => {
         const user = onlineUsers.get(socket.id);
         if (user) {
@@ -414,5 +416,4 @@ server.listen(PORT, () => {
     console.log(`🚀 Ultra-fast server running on port ${PORT}`);
     console.log(`💾 Database optimized for performance`);
     console.log(`⚡ Message delivery: INSTANT`);
-    console.log(`📞 Calls: ENABLED`);
 });
