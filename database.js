@@ -37,9 +37,10 @@ db.serialize(() => {
     
     db.run(`CREATE TABLE IF NOT EXISTS channels (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
+        name TEXT UNIQUE,
         type TEXT DEFAULT 'text',
         created_by INTEGER,
+        permissions TEXT DEFAULT '{"read": true, "write": true}',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
     
@@ -64,9 +65,21 @@ db.serialize(() => {
         FOREIGN KEY(to_user) REFERENCES users(id)
     )`);
     
-    // Создаем начальные данные
-    db.run("INSERT OR IGNORE INTO channels (name, type) VALUES ('general', 'text')");
-    db.run("INSERT OR IGNORE INTO channels (name, type) VALUES ('help', 'text')");
+    // Создаем начальные данные ТОЛЬКО если их нет
+    const initialChannels = [
+        { name: 'general', type: 'text', permissions: '{"read": true, "write": true}' },
+        { name: 'help', type: 'text', permissions: '{"read": true, "write": true}' }
+    ];
+    
+    initialChannels.forEach(channel => {
+        db.get("SELECT id FROM channels WHERE name = ?", [channel.name], (err, row) => {
+            if (err) return;
+            if (!row) {
+                db.run("INSERT INTO channels (name, type, permissions) VALUES (?, ?, ?)",
+                    [channel.name, channel.type, channel.permissions]);
+            }
+        });
+    });
     
     // Создаем тестовых пользователей
     const createUser = async (username, password, isAdmin = false) => {
@@ -79,7 +92,7 @@ db.serialize(() => {
     
     createUser('Lenkov', 'ClorumAdminNord', true);
     createUser('9nge', 'ClorumPrCreator9nge', true);
+    createUser('test', 'test123', false);
 });
 
 module.exports = { db, simpleHash };
-
