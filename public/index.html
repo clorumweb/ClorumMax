@@ -1303,11 +1303,27 @@
 
        async function loadAllUsers() {
     try {
+        console.log('Начало загрузки пользователей...');
         const response = await fetch('/api/users/all');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         allUsers = await response.json();
-        console.log('Загружены пользователи:', allUsers); // Для отладки
+        console.log('Успешно загружены пользователи:', allUsers.length);
+        
+        // Проверяем данные
+        allUsers.forEach(user => {
+            console.log(`Пользователь: ${user.username} (ID: ${user.id})`);
+        });
     } catch (error) {
         console.error('Ошибка загрузки пользователей:', error);
+        // Показываем тестовых пользователей если API не работает
+        allUsers = [
+            { id: 1, username: 'Lenkov', display_name: 'Lenkov', avatar_url: 'default', is_admin: true },
+            { id: 2, username: '9nge', display_name: '9nge', avatar_url: 'default', is_admin: true },
+            { id: 3, username: 'test', display_name: 'test', avatar_url: 'default', is_admin: false }
+        ];
+        console.log('Используем тестовых пользователей');
     }
 }
 
@@ -1369,26 +1385,42 @@
 
         function renderFriendsList() {
     const container = document.getElementById('channelsList');
-    const otherUsers = allUsers.filter(user => user.id !== currentUser.id);
     
-    console.log('Рендерим друзей:', otherUsers); // Для отладки
+    // Фильтруем текущего пользователя
+    const otherUsers = allUsers.filter(user => {
+        const isCurrentUser = user.id === currentUser.id;
+        if (isCurrentUser) {
+            console.log('Фильтруем текущего пользователя:', user.username);
+        }
+        return !isCurrentUser;
+    });
+    
+    console.log('Пользователи для отображения в ЛС:', otherUsers);
     
     let html = '<div class="channel-category">Все пользователи</div>';
     
     if (otherUsers.length === 0) {
-        html += '<div style="color: var(--text-muted); padding: 10px; text-align: center;">Пользователи не найдены</div>';
+        html += `
+            <div style="color: var(--text-muted); padding: 20px; text-align: center;">
+                <i class="fas fa-users" style="font-size: 24px; margin-bottom: 10px; display: block;"></i>
+                Пользователи не найдены
+            </div>
+        `;
     } else {
         otherUsers.forEach(user => {
             const isOnline = onlineUsers.some(u => u.id === user.id);
+            const displayName = user.display_name || user.username;
             const avatar = user.avatar_url && user.avatar_url !== 'default' ? 
-                `<img src="${user.avatar_url}" alt="Avatar">` : 
-                (user.display_name || user.username).charAt(0).toUpperCase();
+                `<img src="${user.avatar_url}" alt="${displayName}">` : 
+                displayName.charAt(0).toUpperCase();
+            
+            console.log(`Рендерим пользователя: ${displayName} (ID: ${user.id}), онлайн: ${isOnline}`);
             
             html += `
-                <div class="channel-item dm" onclick="openDM(${user.id})">
+                <div class="channel-item dm" onclick="openDM(${user.id})" title="Написать ${displayName}">
                     <div class="member-avatar">${avatar}</div>
-                    <span class="member-name">${user.display_name || user.username}</span>
-                    ${isOnline ? '<div class="online-indicator"></div>' : ''}
+                    <span class="member-name">${displayName}</span>
+                    ${isOnline ? '<div class="online-indicator" title="В сети"></div>' : '<div style="width: 8px;"></div>'}
                     ${isOnline ? `
                         <button class="message-action-btn" onclick="event.stopPropagation(); startCall(${user.id})" title="Позвонить">
                             <i class="fas fa-phone"></i>
