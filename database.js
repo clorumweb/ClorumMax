@@ -65,6 +65,17 @@ db.serialize(() => {
         FOREIGN KEY(to_user) REFERENCES users(id)
     )`);
     
+    // ДОБАВЛЯЕМ КОЛОНКУ PERMISSIONS ЕСЛИ ЕЁ НЕТ
+    db.run("PRAGMA table_info(channels)", (err, columns) => {
+        if (!err) {
+            const hasPermissions = columns.some(col => col.name === 'permissions');
+            if (!hasPermissions) {
+                console.log('➕ Adding permissions column to channels table');
+                db.run("ALTER TABLE channels ADD COLUMN permissions TEXT DEFAULT '{\"read\": true, \"write\": true}'");
+            }
+        }
+    });
+    
     // Создаем начальные данные ТОЛЬКО если их нет
     const initialChannels = [
         { name: 'general', type: 'text', permissions: '{"read": true, "write": true}' },
@@ -81,19 +92,18 @@ db.serialize(() => {
         });
     });
     
-   // Создаем тестовых пользователей
-const createUser = (username, password, isAdmin = false) => {
-    const hashedPassword = 'hashed_' + password; // Просто добавляем префикс
-    db.run(
-        `INSERT OR IGNORE INTO users (username, display_name, password, is_admin) VALUES (?, ?, ?, ?)`,
-        [username, username, hashedPassword, isAdmin]
-    );
-};
+    // Создаем тестовых пользователей
+    const createUser = (username, password, isAdmin = false) => {
+        const hashedPassword = 'hashed_' + password;
+        db.run(
+            `INSERT OR IGNORE INTO users (username, display_name, password, is_admin) VALUES (?, ?, ?, ?)`,
+            [username, username, hashedPassword, isAdmin]
+        );
+    };
 
-createUser('Lenkov', 'ClorumAdminNord', true);
-createUser('9nge', 'ClorumPrCreator9nge', true);
-createUser('test', 'test123', false);
+    createUser('Lenkov', 'ClorumAdminNord', true);
+    createUser('9nge', 'ClorumPrCreator9nge', true);
+    createUser('test', 'test123', false);
 });
 
 module.exports = { db, simpleHash };
-
