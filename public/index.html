@@ -1165,8 +1165,7 @@
     window.open(src, '_blank');
 }
 
-    javascript
-function login() {
+    function login() {
     // базовая реализация
     console.log('Login function called');
 }
@@ -1271,8 +1270,8 @@ function switchAuthTab(tab) {
         
         const isImage = message.content.startsWith('data:image');
         const messageContent = isImage ? 
-    <img src="${message.content}" class="message-image" onclick="viewImage(this.src)">
-    message.content;
+            `<img src="${message.content}" class="message-image" onclick="viewImage('${message.content}')">` : 
+            message.content;
         
         const authorName = message.display_name || message.username || message.from_display_name || message.from_username;
         const canDelete = currentUser && (currentUser.isAdmin || currentUser.id === (message.user_id || message.from_user));
