@@ -424,10 +424,6 @@ app.get('/health', (req, res) => {
 });
 
 // Главная страница
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -439,6 +435,7 @@ server.listen(PORT, () => {
     console.log(`💾 Database optimized for performance`);
     console.log(`⚡ Message delivery: INSTANT`);
 });
+
 
 
 
