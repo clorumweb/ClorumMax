@@ -81,18 +81,19 @@ db.serialize(() => {
         });
     });
     
-    // Создаем тестовых пользователей
-    const createUser = async (username, password, isAdmin = false) => {
-        const hashedPassword = await simpleHash.hash(password);
-        db.run(
-            `INSERT OR IGNORE INTO users (username, display_name, password, is_admin) VALUES (?, ?, ?, ?)`,
-            [username, username, hashedPassword, isAdmin]
-        );
-    };
-    
-    createUser('Lenkov', 'ClorumAdminNord', true);
-    createUser('9nge', 'ClorumPrCreator9nge', true);
-    createUser('test', 'test123', false);
+   // Создаем тестовых пользователей
+const createUser = (username, password, isAdmin = false) => {
+    const hashedPassword = 'hashed_' + password; // Просто добавляем префикс
+    db.run(
+        `INSERT OR IGNORE INTO users (username, display_name, password, is_admin) VALUES (?, ?, ?, ?)`,
+        [username, username, hashedPassword, isAdmin]
+    );
+};
+
+createUser('Lenkov', 'ClorumAdminNord', true);
+createUser('9nge', 'ClorumPrCreator9nge', true);
+createUser('test', 'test123', false);
 });
 
 module.exports = { db, simpleHash };
+
