@@ -1626,17 +1626,21 @@
     }
 
     function createChannel() {
-        const name = document.getElementById('channelNameInput').value.trim();
-        if (name) {
-            socket.emit('create_channel', { 
-                name, 
-                type: 'text',
-                createdBy: currentUser.id,
-                permissions: { read: true, write: true }
-            });
-            hideCreateChannelModal();
-        }
+    const name = document.getElementById('channelNameInput').value.trim();
+    console.log('Creating channel:', name, 'User:', currentUser);
+    
+    if (name && currentUser) {
+        socket.emit('create_channel', { 
+            name, 
+            type: 'text',
+            createdBy: currentUser.id,
+            permissions: { read: true, write: true }
+        });
+        hideCreateChannelModal();
+    } else {
+        console.log('Cannot create channel - no name or user');
     }
+}
 
     function showEditChannelModal(channelId) {
         const channel = channelId ? channels.find(c => c.id === channelId) : currentChannel;
