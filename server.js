@@ -101,6 +101,164 @@ app.get('/api/users', (req, res) => {
     );
 });
 
+// 📋 ДОПОЛНИТЕЛЬНЫЕ API МАРШРУТЫ
+app.get('/api/users/all', (req, res) => {
+    db.all("SELECT id, username, display_name, avatar_url, is_admin FROM users ORDER BY username", 
+        (err, users) => {
+            if (err) {
+                console.error('❌ Users fetch error:', err);
+                return res.status(500).json({ error: 'Database error' });
+            }
+            res.json(users);
+        }
+    );
+});
+
+app.get('/api/users/search/:query', (req, res) => {
+    const query = req.params.query;
+    db.all(
+        "SELECT id, username, display_name, avatar_url FROM users WHERE username LIKE ? OR display_name LIKE ? ORDER BY username",
+        [`%${query}%`, `%${query}%`],
+        (err, users) => {
+            if (err) {
+                console.error('❌ User search error:', err);
+                return res.status(500).json({ error: 'Database error' });
+            }
+            res.json(users);
+        }
+    );
+});
+
+app.get('/api/channels/:channelId/messages', (req, res) => {
+    const channelId = req.params.channelId;
+    
+    db.all(`
+        SELECT m.*, u.username, u.display_name, u.avatar_url 
+        FROM messages m 
+        LEFT JOIN users u ON m.user_id = u.id 
+        WHERE m.channel_id = ? 
+        ORDER BY m.created_at ASC
+    `, [channelId], (err, messages) => {
+        if (err) {
+            console.error('❌ Messages fetch error:', err);
+            return res.status(500).json({ error: 'Database error' });
+        }
+        res.json(messages);
+    });
+});
+
+app.get('/api/direct-messages/:fromUserId/:toUserId', (req, res) => {
+    const { fromUserId, toUserId } = req.params;
+    
+    db.all(`
+        SELECT dm.*, 
+               u1.username as from_username, u1.display_name as from_display_name, u1.avatar_url as from_avatar,
+               u2.username as to_username, u2.display_name as to_display_name, u2.avatar_url as to_avatar
+        FROM direct_messages dm
+        LEFT JOIN users u1 ON dm.from_user = u1.id
+        LEFT JOIN users u2 ON dm.to_user = u2.id
+        WHERE (dm.from_user = ? AND dm.to_user = ?) OR (dm.from_user = ? AND dm.to_user = ?)
+        ORDER BY dm.created_at ASC
+    `, [fromUserId, toUserId, toUserId, fromUserId], (err, messages) => {
+        if (err) {
+            console.error('❌ DM fetch error:', err);
+            return res.status(500).json({ error: 'Database error' });
+        }
+        res.json(messages);
+    });
+});
+
+app.post('/api/profile', (req, res) => {
+    const { userId, displayName, avatar } = req.body;
+    
+    db.run(
+        "UPDATE users SET display_name = ?, avatar_url = ? WHERE id = ?",
+        [displayName, avatar, userId],
+        function(err) {
+            if (err) {
+                console.error('❌ Profile update error:', err);
+                return res.status(500).json({ error: 'Database error' });
+            }
+            res.json({ success: true });
+        }
+    );
+});
+
+app.delete('/api/messages/:messageId', (req, res) => {
+    const messageId = req.params.messageId;
+    
+    db.run("DELETE FROM messages WHERE id = ?", [messageId], function(err) {
+        if (err) {
+            console.error('❌ Message delete error:', err);
+            return res.status(500).json({ error: 'Database error' });
+        }
+        res.json({ success: true });
+    });
+});
+
+app.delete('/api/direct-messages/:messageId', (req, res) => {
+    const messageId = req.params.messageId;
+    
+    db.run("DELETE FROM direct_messages WHERE id = ?", [messageId], function(err) {
+        if (err) {
+            console.error('❌ DM delete error:', err);
+            return res.status(500).json({ error: 'Database error' });
+        }
+        res.json({ success: true });
+    });
+});
+
+app.delete('/api/channels/:channelId', (req, res) => {
+    const channelId = req.params.channelId;
+    
+    db.run("DELETE FROM channels WHERE id = ?", [channelId], function(err) {
+        if (err) {
+            console.error('❌ Channel delete error:', err);
+            return res.status(500).json({ error: 'Database error' });
+        }
+        res.json({ success: true });
+    });
+});
+
+app.post('/api/channels/:channelId/permissions', (req, res) => {
+    const channelId = req.params.channelId;
+    const { permissions } = req.body;
+    
+    db.run(
+        "UPDATE channels SET permissions = ? WHERE id = ?",
+        [JSON.stringify(permissions), channelId],
+        function(err) {
+            if (err) {
+                console.error('❌ Permissions update error:', err);
+                return res.status(500).json({ error: 'Database error' });
+            }
+            res.json({ success: true });
+        }
+    );
+});
+
+app.delete('/api/users/:userId', (req, res) => {
+    const userId = req.params.userId;
+    
+    // Удаляем пользователя и все его сообщения
+    db.serialize(() => {
+        db.run("DELETE FROM messages WHERE user_id = ?", [userId]);
+        db.run("DELETE FROM direct_messages WHERE from_user = ? OR to_user = ?", [userId, userId]);
+        db.run("DELETE FROM users WHERE id = ?", [userId], function(err) {
+            if (err) {
+                console.error('❌ User delete error:', err);
+                return res.status(500).json({ error: 'Database error' });
+            }
+            res.json({ success: true });
+        });
+    });
+});
+
+// 📋 SERVING INDEX.HTML ДЛЯ SPA
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 // ⚡ ОПТИМИЗИРОВАННЫЕ WebSocket ОБРАБОТЧИКИ
 
 io.on('connection', (socket) => {
@@ -167,7 +325,7 @@ io.on('connection', (socket) => {
         }, 50);
     });
 	
-	    // 🚀 СОЗДАНИЕ КАНАЛА
+    // 🚀 СОЗДАНИЕ КАНАЛА
     socket.on('create_channel', (data) => {
         console.log('📝 Creating channel:', data);
         const user = onlineUsers.get(socket.id);
