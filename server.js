@@ -18,7 +18,7 @@ const onlineUsers = new Map();
 // ОПТИМИЗАЦИЯ EXPRESS
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Health check для мониторинга
 app.get('/health', (req, res) => {
@@ -508,7 +508,7 @@ io.on('connection', (socket) => {
 
 // 📋 SERVING INDEX.HTML
 app.get('*', (req, res) => {
-    res.sendFile(__dirname + '/index.html');
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // 🚀 ЗАПУСК СЕРВЕРА
@@ -516,4 +516,5 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📞 WebRTC calls enabled`);
+    console.log(`📁 Serving from: ${path.join(__dirname, 'public')}`);
 });
