@@ -7,6 +7,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         console.error('❌ Database error:', err);
     } else {
         console.log('✅ Database connected');
+        initializeDatabase();
     }
 });
 
@@ -23,18 +24,8 @@ const simpleHash = {
     compare: (password, hash) => Promise.resolve(hash === 'hashed_' + password)
 };
 
-// Создаем таблицы если их нет
-db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE,
-        display_name TEXT,
-        avatar_url TEXT DEFAULT 'default',
-        password TEXT,
-        is_admin BOOLEAN DEFAULT FALSE,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-    
+function initializeDatabase() {
+    // Создаем таблицы последовательно
     db.run(`CREATE TABLE IF NOT EXISTS channels (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE,
@@ -42,42 +33,67 @@ db.serialize(() => {
         created_by INTEGER,
         permissions TEXT DEFAULT '{"read": true, "write": true}',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-    
-    db.run(`CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        channel_id INTEGER,
-        user_id INTEGER,
-        username TEXT,
-        content TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY(channel_id) REFERENCES channels(id),
-        FOREIGN KEY(user_id) REFERENCES users(id)
-    )`);
-    
-    db.run(`CREATE TABLE IF NOT EXISTS direct_messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        from_user INTEGER,
-        to_user INTEGER,
-        content TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY(from_user) REFERENCES users(id),
-        FOREIGN KEY(to_user) REFERENCES users(id)
-    )`);
-    
-    // ДОБАВЛЯЕМ КОЛОНКУ PERMISSIONS ЕСЛИ ЕЁ НЕТ
-db.run("PRAGMA table_info(channels)", (err, columns) => {
-    if (!err && columns) {
-        const hasPermissions = columns.some(col => col.name === 'permissions');
-        if (!hasPermissions) {
-            console.log('➕ Adding permissions column to channels table');
-            db.run("ALTER TABLE channels ADD COLUMN permissions TEXT DEFAULT '{\"read\": true, \"write\": true}'");
+    )`, (err) => {
+        if (err) {
+            console.error('❌ Error creating channels table:', err);
+        } else {
+            console.log('✅ Channels table ready');
+            
+            // После создания channels создаем остальные таблицы
+            db.run(`CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE,
+                display_name TEXT,
+                avatar_url TEXT DEFAULT 'default',
+                password TEXT,
+                is_admin BOOLEAN DEFAULT FALSE,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )`, (err) => {
+                if (err) {
+                    console.error('❌ Error creating users table:', err);
+                } else {
+                    console.log('✅ Users table ready');
+                    
+                    db.run(`CREATE TABLE IF NOT EXISTS messages (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        channel_id INTEGER,
+                        user_id INTEGER,
+                        username TEXT,
+                        content TEXT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY(channel_id) REFERENCES channels(id),
+                        FOREIGN KEY(user_id) REFERENCES users(id)
+                    )`, (err) => {
+                        if (err) {
+                            console.error('❌ Error creating messages table:', err);
+                        } else {
+                            console.log('✅ Messages table ready');
+                            
+                            db.run(`CREATE TABLE IF NOT EXISTS direct_messages (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                from_user INTEGER,
+                                to_user INTEGER,
+                                content TEXT,
+                                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                FOREIGN KEY(from_user) REFERENCES users(id),
+                                FOREIGN KEY(to_user) REFERENCES users(id)
+                            )`, (err) => {
+                                if (err) {
+                                    console.error('❌ Error creating direct_messages table:', err);
+                                } else {
+                                    console.log('✅ Direct messages table ready');
+                                    createInitialData();
+                                }
+                            });
+                        }
+                    });
+                }
+            });
         }
-    } else {
-        console.log('ℹ️ Channels table not found or error:', err);
-    }
-});
-    
+    });
+}
+
+function createInitialData() {
     // Создаем начальные данные ТОЛЬКО если их нет
     const initialChannels = [
         { name: 'general', type: 'text', permissions: '{"read": true, "write": true}' },
@@ -89,7 +105,9 @@ db.run("PRAGMA table_info(channels)", (err, columns) => {
             if (err) return;
             if (!row) {
                 db.run("INSERT INTO channels (name, type, permissions) VALUES (?, ?, ?)",
-                    [channel.name, channel.type, channel.permissions]);
+                    [channel.name, channel.type, channel.permissions], (err) => {
+                        if (err) console.error('Error inserting channel:', err);
+                    });
             }
         });
     });
@@ -99,14 +117,18 @@ db.run("PRAGMA table_info(channels)", (err, columns) => {
         const hashedPassword = 'hashed_' + password;
         db.run(
             `INSERT OR IGNORE INTO users (username, display_name, password, is_admin) VALUES (?, ?, ?, ?)`,
-            [username, username, hashedPassword, isAdmin]
+            [username, username, hashedPassword, isAdmin],
+            (err) => {
+                if (err) console.error('Error creating user:', err);
+            }
         );
     };
 
     createUser('Lenkov', 'ClorumAdminNord', true);
     createUser('9nge', 'ClorumPrCreator9nge', true);
     createUser('test', 'test123', false);
-});
+    
+    console.log('🎉 Database initialization complete!');
+}
 
 module.exports = { db, simpleHash };
-
