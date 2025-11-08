@@ -66,15 +66,17 @@ db.serialize(() => {
     )`);
     
     // ДОБАВЛЯЕМ КОЛОНКУ PERMISSIONS ЕСЛИ ЕЁ НЕТ
-    db.run("PRAGMA table_info(channels)", (err, columns) => {
-        if (!err) {
-            const hasPermissions = columns.some(col => col.name === 'permissions');
-            if (!hasPermissions) {
-                console.log('➕ Adding permissions column to channels table');
-                db.run("ALTER TABLE channels ADD COLUMN permissions TEXT DEFAULT '{\"read\": true, \"write\": true}'");
-            }
+db.run("PRAGMA table_info(channels)", (err, columns) => {
+    if (!err && columns) {
+        const hasPermissions = columns.some(col => col.name === 'permissions');
+        if (!hasPermissions) {
+            console.log('➕ Adding permissions column to channels table');
+            db.run("ALTER TABLE channels ADD COLUMN permissions TEXT DEFAULT '{\"read\": true, \"write\": true}'");
         }
-    });
+    } else {
+        console.log('ℹ️ Channels table not found or error:', err);
+    }
+});
     
     // Создаем начальные данные ТОЛЬКО если их нет
     const initialChannels = [
@@ -107,3 +109,4 @@ db.serialize(() => {
 });
 
 module.exports = { db, simpleHash };
+
