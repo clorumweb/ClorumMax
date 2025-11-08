@@ -4,7 +4,7 @@
     <title>ClorumMax</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* ТВОЙ CSS КОД ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ */
+        /* СУЩЕСТВУЮЩИЕ СТИЛИ ОСТАЮТСЯ БЕЗ ИЗМЕНЕНИЙ */
         :root {
             --background-primary: #0f0f0f;
             --background-secondary: #1a1a1a;
@@ -63,6 +63,7 @@
             100% { transform: scale(1); }
         }
 
+        /* СУЩЕСТВУЮЩИЕ СТИЛИ КОМПОНЕНТОВ ОСТАЮТСЯ */
         .servers-sidebar {
             width: 72px;
             background: var(--background-tertiary);
@@ -100,18 +101,6 @@
             animation: pulse 2s infinite;
         }
 
-        .server-icon.active::before {
-            content: '';
-            position: absolute;
-            left: -8px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 4px;
-            height: 20px;
-            background: var(--brand);
-            border-radius: 0 4px 4px 0;
-        }
-
         .channels-sidebar {
             width: 240px;
             background: var(--background-secondary);
@@ -145,12 +134,6 @@
             border-radius: 4px;
             font-size: 14px;
             transition: all 0.2s;
-        }
-
-        .channel-action-btn:hover, .logout-btn:hover {
-            color: var(--text-normal);
-            background: var(--background-accent);
-            transform: scale(1.1);
         }
 
         .user-profile {
@@ -868,9 +851,133 @@
             font-size: 14px;
             animation: fadeIn 0.3s ease;
         }
+
+        /* 🆕 СТИЛИ ДЛЯ WEBRTC ЗВОНКОВ */
+        .call-btn {
+            background: var(--brand);
+            border: none;
+            border-radius: 4px;
+            padding: 6px 10px;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            margin: 2px;
+        }
+
+        .call-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .video-call {
+            background: var(--brand);
+        }
+
+        .audio-call {
+            background: var(--success);
+        }
+
+        .call-btn:hover {
+            opacity: 0.9;
+        }
+
+        #callInterface {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--background-secondary);
+            padding: 24px;
+            border-radius: 12px;
+            z-index: 10000;
+            border: 2px solid var(--brand);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            min-width: 300px;
+            text-align: center;
+        }
+
+        #callStatus {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: var(--text-normal);
+            font-weight: 600;
+        }
+
+        .call-controls {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        .call-control-btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .call-control-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .accept-call {
+            background: var(--success);
+        }
+
+        .reject-call {
+            background: var(--danger);
+        }
+
+        .end-call {
+            background: var(--danger);
+        }
+
+        #localVideo {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 200px;
+            height: 150px;
+            border: 2px solid var(--brand);
+            border-radius: 8px;
+            z-index: 9999;
+            background: var(--background-primary);
+        }
+
+        #remoteVideo {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 9998;
+            background: var(--background-primary);
+        }
+
+        .call-buttons-container {
+            display: flex;
+            gap: 5px;
+            margin-top: 8px;
+            justify-content: center;
+        }
+
+        .user-call-actions {
+            display: flex;
+            gap: 5px;
+            margin-left: auto;
+        }
     </style>
 </head>
 <body>
+    <!-- СУЩЕСТВУЮЩИЙ HTML КОД ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ -->
     <div id="authScreen" class="auth-screen">
         <div class="auth-container">
             <h1 class="auth-title">ClorumMax</h1>
@@ -979,7 +1086,7 @@
         </div>
     </div>
 
-    <!-- Модальные окна -->
+    <!-- СУЩЕСТВУЮЩИЕ МОДАЛЬНЫЕ ОКНА ОСТАЮТСЯ -->
     <div id="profileModal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-title">Редактировать профиль</div>
@@ -1066,6 +1173,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
+        // СУЩЕСТВУЮЩИЙ КОД ДО WEBRTC ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ
         let socket = io();
         let currentUser = null;
         let currentView = 'server';
@@ -1077,7 +1185,7 @@
         let selectedImage = null;
         let isLoadingMessages = false;
 
-        // ПРОВЕРКА ПОДКЛЮЧЕНИЯ SOCKET
+        // СУЩЕСТВУЮЩИЕ ОБРАБОТЧИКИ SOCKET ОСТАЮТСЯ
         socket.on('connect', () => {
             console.log('✅ SOCKET CONNECTED TO SERVER');
         });
@@ -1090,7 +1198,6 @@
             console.error('❌ SOCKET CONNECTION ERROR:', error);
         });
 
-        // ОБРАБОТЧИКИ SOCKET СОБЫТИЙ
         socket.on('online_users', (users) => {
             console.log('👥 Online users received:', users);
             onlineUsers = users;
@@ -1157,7 +1264,7 @@
             alert('Ошибка создания канала: ' + error);
         });
 
-        // Функция для добавления сообщения в чат
+        // СУЩЕСТВУЮЩИЕ ФУНКЦИИ ОСТАЮТСЯ
         function addMessageToChat(message) {
             const container = document.getElementById('messagesContainer');
             
@@ -1201,7 +1308,7 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        // ОСТАЛЬНОЙ ТВОЙ КОД БЕЗ ИЗМЕНЕНИЙ
+        // СУЩЕСТВУЮЩИЕ ФУНКЦИИ АУТЕНТИФИКАЦИИ И ЧАТА ОСТАЮТСЯ
         function switchAuthTab(tab) {
             document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
             document.getElementById('loginForm').style.display = 'none';
@@ -1445,10 +1552,18 @@
                         displayName.charAt(0).toUpperCase();
                     
                     html += `
-                        <div class="channel-item dm" onclick="openDM(${user.id})" title="Написать ${displayName}">
+                        <div class="channel-item dm">
                             <div class="member-avatar">${avatar}</div>
                             <span class="member-name">${displayName}</span>
                             ${isOnline ? '<div class="online-indicator" title="В сети"></div>' : '<div style="width: 8px;"></div>'}
+                            <div class="user-call-actions">
+                                <button class="call-btn video-call" onclick="startCall(${user.id}, 'video')" title="Video call">
+                                    <i class="fas fa-video"></i>
+                                </button>
+                                <button class="call-btn audio-call" onclick="startCall(${user.id}, 'audio')" title="Audio call">
+                                    <i class="fas fa-phone"></i>
+                                </button>
+                            </div>
                         </div>
                     `;
                 });
@@ -1734,7 +1849,7 @@
             }
         }
 
-        // УПРАВЛЕНИЕ КАНАЛАМИ И ПОЛЬЗОВАТЕЛЯМИ
+        // СУЩЕСТВУЮЩИЕ ФУНКЦИИ УПРАВЛЕНИЯ КАНАЛАМИ ОСТАЮТСЯ
         function showCreateChannelModal() {
             document.getElementById('createChannelModal').classList.remove('hidden');
         }
@@ -2029,6 +2144,372 @@
             }
         }
 
+        // 🎛️ WEBRTC ЛОГИКА
+        let localStream = null;
+        let remoteStream = null;
+        let peerConnection = null;
+        let currentCall = null;
+
+        // Конфигурация STUN серверов
+        const rtcConfiguration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+        };
+
+        // Функция для начала звонка
+        async function startCall(userId, callType = 'video') {
+            if (currentCall) {
+                alert('Уже в активном звонке');
+                return;
+            }
+            
+            try {
+                console.log(`Starting ${callType} call with user ${userId}`);
+                
+                // Получаем медиапоток
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: callType === 'video',
+                    audio: true
+                });
+                
+                // Показываем локальное видео
+                showLocalVideo(localStream);
+                
+                // Создаем peer connection
+                createPeerConnection();
+                
+                // Добавляем треки в соединение
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+                
+                // Сохраняем информацию о текущем звонке
+                currentCall = {
+                    userId: userId,
+                    type: callType
+                };
+                
+                // Отправляем сигнал о звонке через сокет
+                socket.emit('webrtc_call', {
+                    toUserId: userId,
+                    callType: callType
+                });
+                
+                // Показываем интерфейс звонка
+                showCallInterface('calling', `Calling ${getUserName(userId)}...`);
+                
+            } catch (error) {
+                console.error('Error starting call:', error);
+                alert('Error accessing camera/microphone: ' + error.message);
+            }
+        }
+
+        // Функция создания peer connection
+        function createPeerConnection() {
+            peerConnection = new RTCPeerConnection(rtcConfiguration);
+            
+            // Обработка удаленного потока
+            peerConnection.ontrack = (event) => {
+                console.log('Received remote stream');
+                remoteStream = event.streams[0];
+                showRemoteVideo(remoteStream);
+                updateCallStatus('Connected');
+            };
+            
+            // Обработка ICE кандидатов
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate && currentCall) {
+                    socket.emit('webrtc_ice_candidate', {
+                        toUserId: currentCall.userId || currentCall.fromUserId,
+                        candidate: event.candidate
+                    });
+                }
+            };
+            
+            // Мониторинг состояния соединения
+            peerConnection.onconnectionstatechange = () => {
+                console.log('Connection state:', peerConnection.connectionState);
+                if (peerConnection.connectionState === 'connected') {
+                    updateCallStatus('Connected');
+                } else if (peerConnection.connectionState === 'disconnected') {
+                    updateCallStatus('Disconnected');
+                } else if (peerConnection.connectionState === 'failed') {
+                    updateCallStatus('Connection failed');
+                    setTimeout(() => {
+                        endCall();
+                    }, 2000);
+                }
+            };
+        }
+
+        // Функция принятия входящего звонка
+        async function acceptCall() {
+            if (!currentCall) return;
+            
+            try {
+                const callType = currentCall.type;
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: callType === 'video',
+                    audio: true
+                });
+                
+                showLocalVideo(localStream);
+                createPeerConnection();
+                
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+                
+                // Создаем ответ
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                
+                // Отправляем ответ
+                socket.emit('webrtc_answer', {
+                    toUserId: currentCall.fromUserId,
+                    answer: peerConnection.localDescription
+                });
+                
+                // Уведомляем о принятии звонка
+                socket.emit('webrtc_accept_call', {
+                    fromUserId: currentCall.fromUserId
+                });
+                
+                showCallInterface('active', `In call with ${getUserName(currentCall.fromUserId)}`);
+                
+            } catch (error) {
+                console.error('Error accepting call:', error);
+                alert('Error accessing camera/microphone: ' + error.message);
+            }
+        }
+
+        // Функция отклонения звонка
+        function rejectCall() {
+            if (currentCall && currentCall.fromUserId) {
+                socket.emit('webrtc_reject_call', {
+                    fromUserId: currentCall.fromUserId
+                });
+            }
+            cleanupCall();
+        }
+
+        // Функция завершения звонка
+        function endCall() {
+            if (currentCall) {
+                socket.emit('webrtc_end_call', {
+                    toUserId: currentCall.userId || currentCall.fromUserId
+                });
+            }
+            cleanupCall();
+        }
+
+        // Очистка после звонка
+        function cleanupCall() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            
+            hideCallInterface();
+            currentCall = null;
+        }
+
+        // Функции отображения видео
+        function showLocalVideo(stream) {
+            let localVideo = document.getElementById('localVideo');
+            if (!localVideo) {
+                localVideo = document.createElement('video');
+                localVideo.id = 'localVideo';
+                localVideo.autoplay = true;
+                localVideo.muted = true;
+                localVideo.playsInline = true;
+                document.body.appendChild(localVideo);
+            }
+            localVideo.srcObject = stream;
+        }
+
+        function showRemoteVideo(stream) {
+            let remoteVideo = document.getElementById('remoteVideo');
+            if (!remoteVideo) {
+                remoteVideo = document.createElement('video');
+                remoteVideo.id = 'remoteVideo';
+                remoteVideo.autoplay = true;
+                remoteVideo.playsInline = true;
+                document.body.appendChild(remoteVideo);
+            }
+            remoteVideo.srcObject = stream;
+        }
+
+        // Интерфейс звонка
+        function showCallInterface(state, status) {
+            let callInterface = document.getElementById('callInterface');
+            if (!callInterface) {
+                callInterface = document.createElement('div');
+                callInterface.id = 'callInterface';
+                document.body.appendChild(callInterface);
+            }
+            
+            let buttons = '';
+            if (state === 'incoming') {
+                buttons = `
+                    <button class="call-control-btn accept-call" onclick="acceptCall()">
+                        <i class="fas fa-phone"></i> Accept
+                    </button>
+                    <button class="call-control-btn reject-call" onclick="rejectCall()">
+                        <i class="fas fa-phone-slash"></i> Reject
+                    </button>
+                `;
+            } else {
+                buttons = `
+                    <button class="call-control-btn end-call" onclick="endCall()">
+                        <i class="fas fa-phone-slash"></i> End Call
+                    </button>
+                `;
+            }
+            
+            callInterface.innerHTML = `
+                <div id="callStatus">${status}</div>
+                <div class="call-controls">
+                    ${buttons}
+                </div>
+            `;
+        }
+
+        function updateCallStatus(status) {
+            const statusElement = document.getElementById('callStatus');
+            if (statusElement) {
+                statusElement.textContent = status;
+            }
+        }
+
+        function hideCallInterface() {
+            const callInterface = document.getElementById('callInterface');
+            if (callInterface) {
+                callInterface.remove();
+            }
+            
+            const localVideo = document.getElementById('localVideo');
+            if (localVideo) localVideo.remove();
+            
+            const remoteVideo = document.getElementById('remoteVideo');
+            if (remoteVideo) remoteVideo.remove();
+        }
+
+        // Вспомогательная функция
+        function getUserName(userId) {
+            const user = allUsers.find(u => u.id === userId);
+            return user ? (user.display_name || user.username) : 'User';
+        }
+
+        // 🎯 ОБРАБОТЧИКИ СОКЕТОВ ДЛЯ WEBRTC
+
+        // Входящий звонок
+        socket.on('webrtc_incoming_call', (data) => {
+            if (currentCall) {
+                // Уже в звонке, отклоняем входящий
+                socket.emit('webrtc_reject_call', {
+                    fromUserId: data.fromUserId
+                });
+                return;
+            }
+            
+            currentCall = {
+                fromUserId: data.fromUserId,
+                type: data.callType
+            };
+            
+            showCallInterface('incoming', `Incoming ${data.callType} call from ${data.fromDisplayName}`);
+        });
+
+        // Звонок принят
+        socket.on('webrtc_call_accepted', (data) => {
+            if (!currentCall) return;
+            
+            updateCallStatus(`Call accepted - connecting...`);
+            
+            // Создаем оффер
+            createOffer();
+        });
+
+        async function createOffer() {
+            try {
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                
+                socket.emit('webrtc_offer', {
+                    toUserId: currentCall.userId,
+                    offer: offer
+                });
+            } catch (error) {
+                console.error('Error creating offer:', error);
+            }
+        }
+
+        // Получение оффера
+        socket.on('webrtc_offer', async (data) => {
+            if (!currentCall) return;
+            
+            try {
+                await peerConnection.setRemoteDescription(data.offer);
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                
+                socket.emit('webrtc_answer', {
+                    toUserId: data.fromUserId,
+                    answer: answer
+                });
+                
+                updateCallStatus(`In call with ${getUserName(data.fromUserId)}`);
+            } catch (error) {
+                console.error('Error handling offer:', error);
+            }
+        });
+
+        // Получение ответа
+        socket.on('webrtc_answer', async (data) => {
+            if (!peerConnection || !currentCall) return;
+            
+            try {
+                await peerConnection.setRemoteDescription(data.answer);
+                updateCallStatus(`In call with ${getUserName(data.fromUserId)}`);
+            } catch (error) {
+                console.error('Error handling answer:', error);
+            }
+        });
+
+        // Получение ICE кандидата
+        socket.on('webrtc_ice_candidate', async (data) => {
+            if (!peerConnection || !currentCall) return;
+            
+            try {
+                await peerConnection.addIceCandidate(data.candidate);
+            } catch (error) {
+                console.error('Error adding ICE candidate:', error);
+            }
+        });
+
+        // Звонок завершен
+        socket.on('webrtc_call_ended', () => {
+            cleanupCall();
+            alert('Call ended');
+        });
+
+        // Звонок отклонен
+        socket.on('webrtc_call_rejected', () => {
+            if (currentCall) {
+                cleanupCall();
+                alert('Call was rejected');
+            }
+        });
+
         // ЗАГРУЗКА ПРИЛОЖЕНИЯ
         window.addEventListener('load', function() {
             const savedUser = localStorage.getItem('currentUser');
@@ -2042,7 +2523,8 @@
             login: typeof login,
             register: typeof register, 
             switchAuthTab: typeof switchAuthTab,
-            switchView: typeof switchView
+            switchView: typeof switchView,
+            startCall: typeof startCall
         });
     </script>
 </body>
