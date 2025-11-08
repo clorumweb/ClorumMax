@@ -15,7 +15,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 db.configure("busyTimeout", 3000);
 db.run("PRAGMA journal_mode = WAL;");
 db.run("PRAGMA synchronous = NORMAL;"); 
-db.run("PRAGMA cache_size = -10000;");
+db.run("PRAGMA cache_size = -2000;");
 db.run("PRAGMA temp_store = MEMORY;");
 db.run("PRAGMA mmap_size = 268435456;");
 
@@ -30,7 +30,6 @@ function initializeDatabase() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE,
         type TEXT DEFAULT 'text',
-        created_by INTEGER,
         permissions TEXT DEFAULT '{"read": true, "write": true}',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`, (err) => {
@@ -60,9 +59,7 @@ function initializeDatabase() {
                         user_id INTEGER,
                         username TEXT,
                         content TEXT,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY(channel_id) REFERENCES channels(id),
-                        FOREIGN KEY(user_id) REFERENCES users(id)
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                     )`, (err) => {
                         if (err) {
                             console.error('❌ Error creating messages table:', err);
@@ -74,21 +71,77 @@ function initializeDatabase() {
                                 from_user INTEGER,
                                 to_user INTEGER,
                                 content TEXT,
-                                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                                FOREIGN KEY(from_user) REFERENCES users(id),
-                                FOREIGN KEY(to_user) REFERENCES users(id)
+                                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                             )`, (err) => {
                                 if (err) {
                                     console.error('❌ Error creating direct_messages table:', err);
                                 } else {
                                     console.log('✅ Direct messages table ready');
                                     createInitialData();
+                                    fixDatabaseSchema();
                                 }
                             });
                         }
                     });
                 }
             });
+        }
+    });
+}
+
+function fixDatabaseSchema() {
+    console.log('🔧 Checking database schema...');
+    
+    // Проверяем структуру таблицы channels
+    db.all("PRAGMA table_info(channels)", (err, columns) => {
+        if (err) {
+            console.error('❌ Error checking table structure:', err);
+            return;
+        }
+        
+        console.log('📊 Channels table structure:', columns);
+        
+        // Если есть created_by поле, которое вызывает проблемы, исправляем это
+        const hasCreatedBy = columns.some(col => col.name === 'created_by');
+        if (hasCreatedBy) {
+            console.log('🔄 Fixing channels table structure...');
+            
+            // Создаем временную таблицу без created_by
+            db.run(`CREATE TABLE IF NOT EXISTS channels_temp (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE,
+                type TEXT DEFAULT 'text',
+                permissions TEXT DEFAULT '{"read": true, "write": true}',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )`, (err) => {
+                if (err) {
+                    console.error('Error creating temp table:', err);
+                    return;
+                }
+                
+                // Копируем данные из старой таблицы
+                db.run(`INSERT OR IGNORE INTO channels_temp (id, name, type, permissions, created_at)
+                        SELECT id, name, type, permissions, created_at FROM channels`, (err) => {
+                    if (err) {
+                        console.error('Error copying data:', err);
+                        return;
+                    }
+                    
+                    // Удаляем старую таблицу и переименовываем временную
+                    db.run("DROP TABLE IF EXISTS channels", (err) => {
+                        if (err) console.error('Error dropping old table:', err);
+                        db.run("ALTER TABLE channels_temp RENAME TO channels", (err) => {
+                            if (err) {
+                                console.error('Error renaming table:', err);
+                            } else {
+                                console.log('✅ Channels table fixed successfully');
+                            }
+                        });
+                    });
+                });
+            });
+        } else {
+            console.log('✅ Channels table structure is correct');
         }
     });
 }
