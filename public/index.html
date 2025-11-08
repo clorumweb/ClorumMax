@@ -2321,7 +2321,7 @@ function switchAuthTab(tab) {
         } catch (error) {
             console.error('Error handling offer:', error);
         }
-    }
+    });
 
     // Получение ответа
     socket.on('webrtc_answer', async (data) => {
