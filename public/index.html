@@ -1160,6 +1160,11 @@
     let selectedImage = null;
     let isLoadingMessages = false;
 
+
+    function viewImage(src) {
+    window.open(src, '_blank');
+}
+
     // СУЩЕСТВУЮЩИЕ ОБРАБОТЧИКИ SOCKET
     socket.on('connect', () => {
         console.log('✅ SOCKET CONNECTED TO SERVER');
@@ -1249,7 +1254,7 @@
         
         const isImage = message.content.startsWith('data:image');
         const messageContent = isImage ? 
-    `<img src="${message.content}" class="message-image" onclick="viewImage('${message.content.replace(/'/g, "\\'")}')">` : 
+    <img src="${message.content}" class="message-image" onclick="viewImage(this.src)">
     message.content;
         
         const authorName = message.display_name || message.username || message.from_display_name || message.from_username;
