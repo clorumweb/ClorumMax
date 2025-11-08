@@ -148,13 +148,9 @@ app.post('/api/profile', (req, res) => {
 app.delete('/api/users/:userId', (req, res) => {
     const userId = req.params.userId;
     
-    // Проверяем права администратора (в реальном приложении нужно добавить аутентификацию)
     db.serialize(() => {
-        // Удаляем сообщения пользователя
         db.run("DELETE FROM messages WHERE user_id = ?", [userId]);
-        // Удаляем личные сообщения пользователя
         db.run("DELETE FROM direct_messages WHERE from_user = ? OR to_user = ?", [userId, userId]);
-        // Удаляем пользователя
         db.run("DELETE FROM users WHERE id = ?", [userId], function(err) {
             if (err) return res.status(500).json({ error: 'DB error' });
             res.json({ success: true });
@@ -204,7 +200,6 @@ app.get('/api/channels', (req, res) => {
     db.all("SELECT id, name, type, permissions FROM channels ORDER BY created_at", (err, channels) => {
         if (err) {
             console.error('❌ Channels DB error:', err);
-            // Возвращаем пустой массив вместо ошибки
             return res.json([]);
         }
         console.log('✅ Channels loaded:', channels?.length || 0);
@@ -248,33 +243,32 @@ io.on('connection', (socket) => {
             socketId: socket.id
         });
         
-        // Мгновенное обновление списка онлайн
         io.emit('online_users', Array.from(onlineUsers.values()));
     });
 
     // Создание канала
-   socket.on('create_channel', (data) => {
-    console.log('📢 Creating channel:', data);
-    
-    db.run("INSERT INTO channels (name, type, created_by, permissions) VALUES (?, ?, ?, ?)",
-        [data.name, data.type, data.createdBy, JSON.stringify(data.permissions || {read: true, write: true})],
-        function(err) {
-            if (err) {
-                console.error('❌ Channel creation error:', err);
-                socket.emit('channel_error', 'Failed to create channel');
-                return;
+    socket.on('create_channel', (data) => {
+        console.log('📢 Creating channel:', data);
+        
+        db.run("INSERT INTO channels (name, type, created_by, permissions) VALUES (?, ?, ?, ?)",
+            [data.name, data.type, data.createdBy, JSON.stringify(data.permissions || {read: true, write: true})],
+            function(err) {
+                if (err) {
+                    console.error('❌ Channel creation error:', err);
+                    socket.emit('channel_error', 'Failed to create channel');
+                    return;
+                }
+                console.log('✅ Channel created with ID:', this.lastID);
+                const newChannel = {
+                    id: this.lastID,
+                    name: data.name,
+                    type: data.type,
+                    permissions: data.permissions || {read: true, write: true}
+                };
+                io.emit('channel_created', newChannel);
             }
-            console.log('✅ Channel created with ID:', this.lastID);
-            const newChannel = {
-                id: this.lastID,
-                name: data.name,
-                type: data.type,
-                permissions: data.permissions || {read: true, write: true}
-            };
-            io.emit('channel_created', newChannel);
-        }
-    );
-});
+        );
+    });
 
     // Обновление канала
     socket.on('update_channel', (data) => {
@@ -300,7 +294,6 @@ io.on('connection', (socket) => {
         const user = onlineUsers.get(socket.id);
         if (!user) return;
 
-        // Проверяем права на запись в канал
         db.get("SELECT permissions FROM channels WHERE id = ?", [data.channelId], (err, channel) => {
             if (err || !channel) {
                 socket.emit('message_error', 'Channel not found');
@@ -329,7 +322,6 @@ io.on('connection', (socket) => {
                 temp: true
             };
             
-            // Мгновенная отправка всем
             io.emit('new_channel_message', tempMessage);
 
             // Асинхронное сохранение в базу
@@ -344,7 +336,6 @@ io.on('connection', (socket) => {
                             return;
                         }
                         
-                        // Заменяем временное сообщение на постоянное
                         const realMessage = {
                             ...tempMessage,
                             id: this.lastID,
@@ -375,7 +366,6 @@ io.on('connection', (socket) => {
             temp: true
         };
 
-        // Мгновенная отправка
         socket.emit('new_direct_message', tempMessage);
         
         const recipient = Array.from(onlineUsers.values()).find(u => u.id === data.toUserId);
@@ -383,7 +373,6 @@ io.on('connection', (socket) => {
             io.to(recipient.socketId).emit('new_direct_message', tempMessage);
         }
 
-        // Асинхронное сохранение
         setTimeout(() => {
             db.run(
                 "INSERT INTO direct_messages (from_user, to_user, content) VALUES (?, ?, ?)",
@@ -419,30 +408,15 @@ io.on('connection', (socket) => {
     });
 });
 
-// Health check роут
-app.get('/health', (req, res) => {
-    res.json({ 
-        status: 'OK', 
-        timestamp: new Date().toISOString(),
-        onlineUsers: onlineUsers.size
-    });
-});
-
-// Главная страница
+// SPA поддержка - ВСЕГДА отдаем index.html
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // 🚀 ЗАПУСК СЕРВЕРА
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Ultra-fast server running on port ${PORT}`);
     console.log(`💾 Database optimized for performance`);
     console.log(`⚡ Message delivery: INSTANT`);
 });
-
-
-
-
-
-
