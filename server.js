@@ -200,12 +200,14 @@ app.get('/api/users/all', (req, res) => {
 
 // 📦 ОПТИМИЗИРОВАННЫЕ ЗАПРОСЫ ДАННЫХ
 app.get('/api/channels', (req, res) => {
+    console.log('📦 Loading channels...');
     db.all("SELECT id, name, type, permissions FROM channels ORDER BY created_at", (err, channels) => {
         if (err) {
-            console.error('Channels DB error:', err);
-            return res.status(500).json({ error: 'DB error: ' + err.message });
+            console.error('❌ Channels DB error:', err);
+            // Возвращаем пустой массив вместо ошибки
+            return res.json([]);
         }
-        // Если каналов нет, возвращаем пустой массив
+        console.log('✅ Channels loaded:', channels?.length || 0);
         res.json(channels || []);
     });
 });
@@ -438,6 +440,7 @@ server.listen(PORT, () => {
     console.log(`💾 Database optimized for performance`);
     console.log(`⚡ Message delivery: INSTANT`);
 });
+
 
 
 
