@@ -414,6 +414,20 @@ io.on('connection', (socket) => {
     });
 });
 
+// Health check роут
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        onlineUsers: onlineUsers.size
+    });
+});
+
+// Главная страница
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 // 🚀 ЗАПУСК СЕРВЕРА
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
@@ -421,4 +435,5 @@ server.listen(PORT, () => {
     console.log(`💾 Database optimized for performance`);
     console.log(`⚡ Message delivery: INSTANT`);
 });
+
 
