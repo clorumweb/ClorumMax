@@ -12,11 +12,9 @@ const io = socketIo(server, {
     cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
-// КЭШ ДЛЯ МГНОВЕННОГО ОТОБРАЖЕНИЯ
 const onlineUsers = new Map();
 const userCache = new Map();
 
-// ОПТИМИЗАЦИЯ EXPRESS
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -30,9 +28,7 @@ app.get('/health', (req, res) => {
     });
 });
 
-// 📦 ОПТИМИЗИРОВАННЫЕ API РОУТЫ
-
-// Быстрая регистрация
+// API Routes
 app.post('/api/register', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -59,7 +55,6 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-// Быстрый вход
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     
@@ -69,7 +64,6 @@ app.post('/api/login', (req, res) => {
         const isValid = await simpleHash.compare(password, user.password);
         if (!isValid) return res.status(400).json({ error: 'Invalid credentials' });
         
-        // Кэшируем пользователя
         userCache.set(user.id, {
             id: user.id,
             username: user.username,
@@ -82,7 +76,6 @@ app.post('/api/login', (req, res) => {
     });
 });
 
-// Получение сообщений канала
 app.get('/api/channels/:channelId/messages', (req, res) => {
     const channelId = req.params.channelId;
     db.all(`
@@ -98,7 +91,6 @@ app.get('/api/channels/:channelId/messages', (req, res) => {
     });
 });
 
-// Получение личных сообщений
 app.get('/api/direct-messages/:fromUserId/:toUserId', (req, res) => {
     const { fromUserId, toUserId } = req.params;
     db.all(`
@@ -114,7 +106,6 @@ app.get('/api/direct-messages/:fromUserId/:toUserId', (req, res) => {
     });
 });
 
-// Удаление сообщения
 app.delete('/api/messages/:messageId', (req, res) => {
     const messageId = req.params.messageId;
     db.run("DELETE FROM messages WHERE id = ?", [messageId], function(err) {
@@ -123,7 +114,6 @@ app.delete('/api/messages/:messageId', (req, res) => {
     });
 });
 
-// Удаление личного сообщения
 app.delete('/api/direct-messages/:messageId', (req, res) => {
     const messageId = req.params.messageId;
     db.run("DELETE FROM direct_messages WHERE id = ?", [messageId], function(err) {
@@ -132,7 +122,6 @@ app.delete('/api/direct-messages/:messageId', (req, res) => {
     });
 });
 
-// Обновление профиля
 app.post('/api/profile', (req, res) => {
     const { userId, displayName, avatar } = req.body;
     db.run("UPDATE users SET display_name = ?, avatar_url = ? WHERE id = ?", 
@@ -144,7 +133,6 @@ app.post('/api/profile', (req, res) => {
     );
 });
 
-// Удаление пользователя (только для админов)
 app.delete('/api/users/:userId', (req, res) => {
     const userId = req.params.userId;
     
@@ -158,7 +146,6 @@ app.delete('/api/users/:userId', (req, res) => {
     });
 });
 
-// Обновление прав канала
 app.post('/api/channels/:channelId/permissions', (req, res) => {
     const channelId = req.params.channelId;
     const { permissions } = req.body;
@@ -172,7 +159,6 @@ app.post('/api/channels/:channelId/permissions', (req, res) => {
     );
 });
 
-// Поиск пользователей
 app.get('/api/users/search/:query', (req, res) => {
     const query = `%${req.params.query}%`;
     db.all("SELECT id, username, display_name, avatar_url FROM users WHERE username LIKE ? OR display_name LIKE ? LIMIT 10", 
@@ -184,7 +170,6 @@ app.get('/api/users/search/:query', (req, res) => {
     );
 });
 
-// Получение всех пользователей для ЛС
 app.get('/api/users/all', (req, res) => {
     db.all("SELECT id, username, display_name, avatar_url, is_admin FROM users ORDER BY username", 
         (err, users) => {
@@ -194,15 +179,12 @@ app.get('/api/users/all', (req, res) => {
     );
 });
 
-// 📦 ОПТИМИЗИРОВАННЫЕ ЗАПРОСЫ ДАННЫХ
 app.get('/api/channels', (req, res) => {
-    console.log('📦 Loading channels...');
     db.all("SELECT id, name, type, permissions FROM channels ORDER BY created_at", (err, channels) => {
         if (err) {
-            console.error('❌ Channels DB error:', err);
+            console.error('Channels DB error:', err);
             return res.json([]);
         }
-        console.log('✅ Channels loaded:', channels?.length || 0);
         res.json(channels || []);
     });
 });
@@ -216,7 +198,6 @@ app.get('/api/users', (req, res) => {
     );
 });
 
-// Удаление канала
 app.delete('/api/channels/:channelId', (req, res) => {
     const channelId = req.params.channelId;
     db.serialize(() => {
@@ -228,8 +209,7 @@ app.delete('/api/channels/:channelId', (req, res) => {
     });
 });
 
-// ⚡ ОПТИМИЗИРОВАННЫЕ WebSocket ОБРАБОТЧИКИ
-
+// WebSocket handlers
 io.on('connection', (socket) => {
     console.log('🔗 User connected:', socket.id);
 
@@ -246,19 +226,15 @@ io.on('connection', (socket) => {
         io.emit('online_users', Array.from(onlineUsers.values()));
     });
 
-    // Создание канала
     socket.on('create_channel', (data) => {
-        console.log('📢 Creating channel:', data);
-        
         db.run("INSERT INTO channels (name, type, created_by, permissions) VALUES (?, ?, ?, ?)",
             [data.name, data.type, data.createdBy, JSON.stringify(data.permissions || {read: true, write: true})],
             function(err) {
                 if (err) {
-                    console.error('❌ Channel creation error:', err);
+                    console.error('Channel creation error:', err);
                     socket.emit('channel_error', 'Failed to create channel');
                     return;
                 }
-                console.log('✅ Channel created with ID:', this.lastID);
                 const newChannel = {
                     id: this.lastID,
                     name: data.name,
@@ -270,7 +246,6 @@ io.on('connection', (socket) => {
         );
     });
 
-    // Обновление канала
     socket.on('update_channel', (data) => {
         db.run("UPDATE channels SET name = ? WHERE id = ?",
             [data.name, data.channelId],
@@ -289,7 +264,6 @@ io.on('connection', (socket) => {
         );
     });
 
-    // 🚀 СУПЕР-БЫСТРАЯ ОТПРАВКА СООБЩЕНИЙ
     socket.on('send_message', (data) => {
         const user = onlineUsers.get(socket.id);
         if (!user) return;
@@ -309,7 +283,6 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            // МГНОВЕННОЕ ОТОБРАЖЕНИЕ
             const tempMessage = {
                 id: Date.now(),
                 channel_id: data.channelId,
@@ -324,7 +297,6 @@ io.on('connection', (socket) => {
             
             io.emit('new_channel_message', tempMessage);
 
-            // Асинхронное сохранение в базу
             setTimeout(() => {
                 db.run(
                     "INSERT INTO messages (channel_id, user_id, username, content) VALUES (?, ?, ?, ?)",
@@ -349,7 +321,6 @@ io.on('connection', (socket) => {
         });
     });
 
-    // 🚀 БЫСТРАЯ ОТПРАВКА ЛИЧНЫХ СООБЩЕНИЙ
     socket.on('send_direct_message', (data) => {
         const fromUser = onlineUsers.get(socket.id);
         if (!fromUser) return;
@@ -408,15 +379,12 @@ io.on('connection', (socket) => {
     });
 });
 
-// SPA поддержка - ВСЕГДА отдаем index.html
+// SPA support
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// 🚀 ЗАПУСК СЕРВЕРА
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Ultra-fast server running on port ${PORT}`);
-    console.log(`💾 Database optimized for performance`);
-    console.log(`⚡ Message delivery: INSTANT`);
+    console.log(`🚀 Server running on port ${PORT}`);
 });
