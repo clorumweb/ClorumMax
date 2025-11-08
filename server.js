@@ -419,7 +419,7 @@ io.on('connection', (socket) => {
         const fromUser = onlineUsers.get(socket.id);
         if (!fromUser) return;
         
-        console.log(`📞 Call from ${fromUser.username} to ${data.toUserId}`);
+        console.log(`📞 ${data.callType} call from ${fromUser.username} to ${data.toUserId}`);
         
         const targetUser = Array.from(onlineUsers.values()).find(u => u.id === data.toUserId);
         if (targetUser) {
