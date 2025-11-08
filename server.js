@@ -18,7 +18,7 @@ const onlineUsers = new Map();
 // ОПТИМИЗАЦИЯ EXPRESS
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(__dirname));
 
 // Health check для мониторинга
 app.get('/health', (req, res) => {
@@ -239,7 +239,7 @@ io.on('connection', (socket) => {
         io.emit('online_users', Array.from(onlineUsers.values()));
     });
 
-    // СОЗДАНИЕ КАНАЛА - ПРОСТАЯ ВЕРСИЯ
+    // СОЗДАНИЕ КАНАЛА
     socket.on('create_channel', (data) => {
         console.log('📝 Creating channel:', data);
         const user = onlineUsers.get(socket.id);
@@ -260,7 +260,6 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // ПРОСТОЙ ЗАПРОС
         db.run(
             "INSERT INTO channels (name, type) VALUES (?, ?)",
             [channelName, 'text'],
@@ -275,7 +274,6 @@ io.on('connection', (socket) => {
                     return;
                 }
                 
-                // УСПЕХ
                 const newChannel = {
                     id: this.lastID,
                     name: channelName,
@@ -414,6 +412,89 @@ io.on('connection', (socket) => {
         );
     });
 
+    // 🎛️ WEBRTC ОБРАБОТЧИКИ ЗВОНКОВ
+
+    // Инициирование звонка
+    socket.on('webrtc_call', (data) => {
+        const fromUser = onlineUsers.get(socket.id);
+        if (!fromUser) return;
+        
+        console.log(`📞 Call from ${fromUser.username} to ${data.toUserId}`);
+        
+        const targetUser = Array.from(onlineUsers.values()).find(u => u.id === data.toUserId);
+        if (targetUser) {
+            io.to(targetUser.socketId).emit('webrtc_incoming_call', {
+                fromUserId: fromUser.id,
+                fromUsername: fromUser.username,
+                fromDisplayName: fromUser.displayName,
+                callType: data.callType
+            });
+        }
+    });
+
+    // Принятие звонка
+    socket.on('webrtc_accept_call', (data) => {
+        const acceptingUser = onlineUsers.get(socket.id);
+        const callingUser = Array.from(onlineUsers.values()).find(u => u.id === data.fromUserId);
+        
+        if (callingUser && acceptingUser) {
+            console.log(`✅ Call accepted between ${callingUser.username} and ${acceptingUser.username}`);
+            
+            io.to(callingUser.socketId).emit('webrtc_call_accepted', {
+                acceptedBy: acceptingUser.id
+            });
+        }
+    });
+
+    // Отклонение звонка
+    socket.on('webrtc_reject_call', (data) => {
+        const callingUser = Array.from(onlineUsers.values()).find(u => u.id === data.fromUserId);
+        if (callingUser) {
+            io.to(callingUser.socketId).emit('webrtc_call_rejected');
+        }
+    });
+
+    // Обмен SDP офферами
+    socket.on('webrtc_offer', (data) => {
+        const targetUser = Array.from(onlineUsers.values()).find(u => u.id === data.toUserId);
+        if (targetUser) {
+            io.to(targetUser.socketId).emit('webrtc_offer', {
+                offer: data.offer,
+                fromUserId: data.fromUserId
+            });
+        }
+    });
+
+    // Обмен SDP ответами
+    socket.on('webrtc_answer', (data) => {
+        const targetUser = Array.from(onlineUsers.values()).find(u => u.id === data.toUserId);
+        if (targetUser) {
+            io.to(targetUser.socketId).emit('webrtc_answer', {
+                answer: data.answer,
+                fromUserId: data.fromUserId
+            });
+        }
+    });
+
+    // Обмен ICE-кандидатами
+    socket.on('webrtc_ice_candidate', (data) => {
+        const targetUser = Array.from(onlineUsers.values()).find(u => u.id === data.toUserId);
+        if (targetUser) {
+            io.to(targetUser.socketId).emit('webrtc_ice_candidate', {
+                candidate: data.candidate,
+                fromUserId: data.fromUserId
+            });
+        }
+    });
+
+    // Завершение звонка
+    socket.on('webrtc_end_call', (data) => {
+        const targetUser = Array.from(onlineUsers.values()).find(u => u.id === data.toUserId);
+        if (targetUser) {
+            io.to(targetUser.socketId).emit('webrtc_call_ended');
+        }
+    });
+
     // Отключение
     socket.on('disconnect', () => {
         const user = onlineUsers.get(socket.id);
@@ -426,15 +507,13 @@ io.on('connection', (socket) => {
 });
 
 // 📋 SERVING INDEX.HTML
-app.use(express.static(path.join(__dirname, 'public')));
-
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(__dirname + '/index.html');
 });
 
 // 🚀 ЗАПУСК СЕРВЕРА
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📞 WebRTC calls enabled`);
 });
-
