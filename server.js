@@ -251,25 +251,28 @@ io.on('connection', (socket) => {
     });
 
     // Создание канала
-    socket.on('create_channel', (data) => {
-        db.run("INSERT INTO channels (name, type, created_by, permissions) VALUES (?, ?, ?, ?)",
-            [data.name, data.type, data.createdBy, JSON.stringify(data.permissions || {read: true, write: true})],
-            function(err) {
-                if (err) {
-                    console.error('Channel creation error:', err);
-                    socket.emit('channel_error', 'Failed to create channel');
-                    return;
-                }
-                const newChannel = {
-                    id: this.lastID,
-                    name: data.name,
-                    type: data.type,
-                    permissions: data.permissions || {read: true, write: true}
-                };
-                io.emit('channel_created', newChannel);
+   socket.on('create_channel', (data) => {
+    console.log('📢 Creating channel:', data);
+    
+    db.run("INSERT INTO channels (name, type, created_by, permissions) VALUES (?, ?, ?, ?)",
+        [data.name, data.type, data.createdBy, JSON.stringify(data.permissions || {read: true, write: true})],
+        function(err) {
+            if (err) {
+                console.error('❌ Channel creation error:', err);
+                socket.emit('channel_error', 'Failed to create channel');
+                return;
             }
-        );
-    });
+            console.log('✅ Channel created with ID:', this.lastID);
+            const newChannel = {
+                id: this.lastID,
+                name: data.name,
+                type: data.type,
+                permissions: data.permissions || {read: true, write: true}
+            };
+            io.emit('channel_created', newChannel);
+        }
+    );
+});
 
     // Обновление канала
     socket.on('update_channel', (data) => {
@@ -435,6 +438,7 @@ server.listen(PORT, () => {
     console.log(`💾 Database optimized for performance`);
     console.log(`⚡ Message delivery: INSTANT`);
 });
+
 
 
 
