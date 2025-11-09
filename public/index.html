@@ -1146,6 +1146,47 @@
 
     <!-- СУЩЕСТВУЮЩИЕ МОДАЛЬНЫЕ ОКНА ОСТАЮТСЯ -->
 
+    <div id="userManagementModal" class="modal hidden">
+        <div class="modal-content">
+            <h2 class="modal-title">Управление пользователями</h2>
+            <div id="userManagementList" style="max-height: 400px; overflow-y: auto;">
+                <!-- User list will be rendered here -->
+            </div>
+            <div class="modal-buttons" style="margin-top: 20px;">
+                <button class="modal-button secondary" onclick="hideUserManagementModal()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for editing user (ban/mute/delete) -->
+    <div id="editUserModal" class="modal hidden">
+        <div class="modal-content">
+            <h2 class="modal-title" id="editUserModalTitle">Редактировать пользователя</h2>
+            <div id="editUserModalContent">
+                <p>Юзернейм: <span id="editUserUsername"></span></p>
+                <p>Display Name: <span id="editUserDisplayName"></span></p>
+                <p>ID: <span id="editUserId"></span></p>
+                <div class="permission-checkbox">
+                    <input type="checkbox" id="editUserIsAdmin">
+                    <label for="editUserIsAdmin">Администратор</label>
+                </div>
+                <div class="permission-checkbox">
+                    <input type="checkbox" id="editUserIsBanned">
+                    <label for="editUserIsBanned">Забанен</label>
+                </div>
+                <div class="permission-checkbox">
+                    <input type="checkbox" id="editUserIsMuted">
+                    <label for="editUserIsMuted">Замучен</label>
+                </div>
+            </div>
+            <div class="modal-buttons" style="margin-top: 20px;">
+                <button class="modal-button primary" onclick="saveUserChanges()">Сохранить</button>
+                <button class="modal-button danger" onclick="deleteUserConfirm()">Удалить пользователя</button>
+                <button class="modal-button secondary" onclick="hideEditUserModal()">Отмена</button>
+            </div>
+        </div>
+    </div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
     // СУЩЕСТВУЮЩИЙ КОД ДО WEBRTC ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ
@@ -1258,6 +1299,43 @@ function switchAuthTab(tab) {
     socket.on('channel_error', (error) => {
         console.error('❌ Channel error:', error);
         alert('Ошибка создания канала: ' + error);
+    });
+
+    socket.on('user_updated', (updatedUser) => {
+        console.log('👥 User updated via socket:', updatedUser);
+        const index = allUsers.findIndex(u => u.id === updatedUser.id);
+        if (index !== -1) {
+            allUsers[index] = updatedUser;
+        } else {
+            allUsers.push(updatedUser); // В случае если пользователь добавлен (хотя это не ожидается в данном сценарии)
+        }
+        // Обновить currentUser, если это текущий пользователь
+        if (currentUser && currentUser.id === updatedUser.id) {
+            currentUser = updatedUser;
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            updateUserProfile(); // Обновить отображение профиля
+        }
+        renderMembers();
+        renderFriendsList();
+        // Если модальное окно управления пользователями открыто, обновить его
+        if (!document.getElementById('userManagementModal').classList.contains('hidden')) {
+            loadAndRenderUsersForManagement();
+        }
+    });
+
+    socket.on('user_deleted', (userId) => {
+        console.log('👥 User deleted via socket:', userId);
+        allUsers = allUsers.filter(u => u.id !== userId);
+        renderMembers();
+        renderFriendsList();
+        // Если модальное окно управления пользователями открыто, обновить его
+        if (!document.getElementById('userManagementModal').classList.contains('hidden')) {
+            loadAndRenderUsersForManagement();
+        }
+        // Если удален текущий пользователь, выйти из системы
+        if (currentUser && currentUser.id === userId) {
+            logout();
+        }
     });
 
     // Функция для добавления сообщения в чат
@@ -1910,8 +1988,9 @@ function switchAuthTab(tab) {
                 callType: callType
             });
             
-            // Показываем интерфейс звонка
+            // Показываем интерфейс звонка и медиа-контролы
             showCallInterface('calling', `Calling ${getUserName(userId)}...`, callType);
+            showMediaControls(callType);
             
         } catch (error) {
             console.error('Error starting call:', error);
@@ -2141,6 +2220,7 @@ function switchAuthTab(tab) {
         }
         localVideo.srcObject = stream;
         localVideo.style.display = 'block';
+        localVideo.play(); // Явно начинаем воспроизведение
     }
 
     function showRemoteVideo(stream) {
@@ -2154,6 +2234,7 @@ function switchAuthTab(tab) {
         }
         remoteVideo.srcObject = stream;
         remoteVideo.style.display = 'block';
+        remoteVideo.play(); // Явно начинаем воспроизведение
     }
 
     // Интерфейс звонка
@@ -2377,6 +2458,148 @@ function switchAuthTab(tab) {
         switchView: typeof switchView,
         startCall: typeof startCall
     });
+
+    // Функции управления пользователями
+    async function showUserManagementModal() {
+        document.getElementById('userManagementModal').classList.remove('hidden');
+        await loadAndRenderUsersForManagement();
+    }
+
+    function hideUserManagementModal() {
+        document.getElementById('userManagementModal').classList.add('hidden');
+    }
+
+    async function loadAndRenderUsersForManagement() {
+        const userManagementList = document.getElementById('userManagementList');
+        userManagementList.innerHTML = '<div class="loading">Загрузка пользователей...</div>';
+
+        try {
+            const response = await fetch('/api/users/all');
+            const users = await response.json();
+
+            if (users.length === 0) {
+                userManagementList.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Пользователи не найдены</div>';
+                return;
+            }
+
+            userManagementList.innerHTML = users.map(user => {
+                const avatar = user.avatar_url && user.avatar_url !== 'default' ? 
+                    `<img src="${user.avatar_url}" alt="Avatar">` : 
+                    (user.display_name || user.username).charAt(0).toUpperCase();
+                
+                return `
+                    <div class="member-item" style="justify-content: space-between; padding: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div class="member-avatar">${avatar}</div>
+                            <div class="member-name">${user.display_name || user.username}</div>
+                            ${user.isAdmin ? '<div class="admin-badge">ADMIN</div>' : ''}
+                            ${user.isBanned ? '<span style="color: var(--danger); font-size: 12px; margin-left: 5px;">(Забанен)</span>' : ''}
+                            ${user.isMuted ? '<span style="color: var(--text-muted); font-size: 12px; margin-left: 5px;">(Замучен)</span>' : ''}
+                        </div>
+                        <div class="channel-actions-small">
+                            <button class="message-action-btn" onclick="showEditUserModal(${user.id})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="message-action-btn" onclick="deleteUserConfirm(${user.id}, '${user.username}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+        } catch (error) {
+            console.error('Ошибка загрузки пользователей для управления:', error);
+            userManagementList.innerHTML = '<div style="text-align: center; color: var(--danger); padding: 20px;">Ошибка загрузки пользователей</div>';
+        }
+    }
+
+    let userToEdit = null;
+
+    async function showEditUserModal(userId) {
+        userToEdit = allUsers.find(u => u.id === userId);
+        if (!userToEdit) {
+            alert('Пользователь не найден.');
+            return;
+        }
+
+        document.getElementById('editUserModalTitle').textContent = `Редактировать ${userToEdit.username}`;
+        document.getElementById('editUserUsername').textContent = userToEdit.username;
+        document.getElementById('editUserDisplayName').textContent = userToEdit.display_name || 'N/A';
+        document.getElementById('editUserId').textContent = userToEdit.id;
+        document.getElementById('editUserIsAdmin').checked = userToEdit.isAdmin || false;
+        document.getElementById('editUserIsBanned').checked = userToEdit.isBanned || false;
+        document.getElementById('editUserIsMuted').checked = userToEdit.isMuted || false;
+
+        document.getElementById('editUserModal').classList.remove('hidden');
+    }
+
+    function hideEditUserModal() {
+        document.getElementById('editUserModal').classList.add('hidden');
+        userToEdit = null;
+    }
+
+    async function saveUserChanges() {
+        if (!userToEdit) return;
+
+        const isAdmin = document.getElementById('editUserIsAdmin').checked;
+        const isBanned = document.getElementById('editUserIsBanned').checked;
+        const isMuted = document.getElementById('editUserIsMuted').checked;
+
+        try {
+            const response = await fetch(`/api/users/${userToEdit.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isAdmin, isBanned, isMuted })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                alert('Изменения сохранены!');
+                // Обновить список пользователей
+                await loadAllUsers(); // Перезагрузить всех пользователей, чтобы обновить состояние
+                loadAndRenderUsersForManagement(); // Перерисовать список в модальном окне
+                hideEditUserModal();
+                // Отправить обновление через сокет, чтобы другие клиенты знали об изменениях
+                socket.emit('user_updated', data.user);
+            } else {
+                alert('Ошибка сохранения: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Ошибка сохранения изменений пользователя:', error);
+            alert('Ошибка соединения при сохранении изменений.');
+        }
+    }
+
+    function deleteUserConfirm(userId, username) {
+        if (confirm(`Вы уверены, что хотите удалить пользователя ${username}? Это действие необратимо.`)) {
+            deleteUser(userId);
+        }
+    }
+
+    async function deleteUser(userId) {
+        try {
+            const response = await fetch(`/api/users/${userId}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                alert('Пользователь успешно удален!');
+                // Обновить список пользователей
+                await loadAllUsers(); // Перезагрузить всех пользователей, чтобы обновить состояние
+                loadAndRenderUsersForManagement(); // Перерисовать список в модальном окне
+                hideEditUserModal();
+                // Отправить обновление через сокет
+                socket.emit('user_deleted', userId);
+            } else {
+                alert('Ошибка удаления: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Ошибка удаления пользователя:', error);
+            alert('Ошибка соединения при удалении пользователя.');
+        }
+    }
 </script>
 </body>
 </html>
