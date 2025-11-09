@@ -4,7 +4,7 @@
     <title>ClorumMax</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-                :root {
+        :root {
             --background-primary: #0f0f0f;
             --background-secondary: #1a1a1a;
             --background-tertiary: #2a2a2a;
@@ -1007,6 +1007,10 @@
             background: var(--background-primary);
         }
 
+        #remoteAudio {
+            display: none;
+        }
+
         .media-controls {
             position: fixed;
             bottom: 20px;
@@ -1034,7 +1038,6 @@
     </style>
 </head>
 <body>
-    <!-- СУЩЕСТВУЮЩИЙ HTML КОД ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ -->
     <div id="authScreen" class="auth-screen">
         <div class="auth-container">
             <h1 class="auth-title">ClorumMax</h1>
@@ -1060,7 +1063,6 @@
     </div>
 
     <div id="mainApp" class="app hidden">
-        <!-- СУЩЕСТВУЮЩИЙ ИНТЕРФЕЙС ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ -->
         <div class="servers-sidebar">
             <div class="server-icon active" onclick="switchView('server')" title="Сервер">
                 <i class="fas fa-comments"></i>
@@ -1144,1462 +1146,572 @@
         </div>
     </div>
 
-    <!-- СУЩЕСТВУЮЩИЕ МОДАЛЬНЫЕ ОКНА ОСТАЮТСЯ -->
+    <!-- Аудио элемент для удаленного звука -->
+    <audio id="remoteAudio" autoplay></audio>
 
-    <div id="userManagementModal" class="modal hidden">
-        <div class="modal-content">
-            <h2 class="modal-title">Управление пользователями</h2>
-            <div id="userManagementList" style="max-height: 400px; overflow-y: auto;">
-                <!-- User list will be rendered here -->
-            </div>
-            <div class="modal-buttons" style="margin-top: 20px;">
-                <button class="modal-button secondary" onclick="hideUserManagementModal()">Закрыть</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal for editing user (ban/mute/delete) -->
-    <div id="editUserModal" class="modal hidden">
-        <div class="modal-content">
-            <h2 class="modal-title" id="editUserModalTitle">Редактировать пользователя</h2>
-            <div id="editUserModalContent">
-                <p>Юзернейм: <span id="editUserUsername"></span></p>
-                <p>Display Name: <span id="editUserDisplayName"></span></p>
-                <p>ID: <span id="editUserId"></span></p>
-                <div class="permission-checkbox">
-                    <input type="checkbox" id="editUserIsAdmin">
-                    <label for="editUserIsAdmin">Администратор</label>
-                </div>
-                <div class="permission-checkbox">
-                    <input type="checkbox" id="editUserIsBanned">
-                    <label for="editUserIsBanned">Забанен</label>
-                </div>
-                <div class="permission-checkbox">
-                    <input type="checkbox" id="editUserIsMuted">
-                    <label for="editUserIsMuted">Замучен</label>
-                </div>
-            </div>
-            <div class="modal-buttons" style="margin-top: 20px;">
-                <button class="modal-button primary" onclick="saveUserChanges()">Сохранить</button>
-                <button class="modal-button danger" onclick="deleteUserConfirm()">Удалить пользователя</button>
-                <button class="modal-button secondary" onclick="hideEditUserModal()">Отмена</button>
-            </div>
-        </div>
-    </div>
-
-<script src="/socket.io/socket.io.js"></script>
-<script>
-    // СУЩЕСТВУЮЩИЙ КОД ДО WEBRTC ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ
-    let socket = io();
-    let currentUser = null;
-    let currentView = 'server';
-    let currentChannel = null;
-    let currentDMUser = null;
-    let channels = [];
-    let onlineUsers = [];
-    let allUsers = [];
-    let selectedImage = null;
-    let isLoadingMessages = false;
-
-
-    function viewImage(src) {
-    window.open(src, '_blank');
-}
-
-    function login() {
-    // базовая реализация
-    console.log('Login function called');
-}
-
-function register() {
-    // базовая реализация  
-    console.log('Register function called');
-}
-
-function switchAuthTab(tab) {
-    // базовая реализация
-    console.log('Switch to tab:', tab);
-}
-    
-
-    // СУЩЕСТВУЮЩИЕ ОБРАБОТЧИКИ SOCKET
-    socket.on('connect', () => {
-        console.log('✅ SOCKET CONNECTED TO SERVER');
-    });
-
-    socket.on('disconnect', () => {
-        console.log('❌ SOCKET DISCONNECTED');
-    });
-
-    socket.on('connect_error', (error) => {
-        console.error('❌ SOCKET CONNECTION ERROR:', error);
-    });
-
-    socket.on('online_users', (users) => {
-        console.log('👥 Online users received:', users);
-        onlineUsers = users;
-        renderMembers();
-        if (currentView === 'friends') {
-            renderFriendsList();
-        }
-    });
-
-    socket.on('new_channel_message', (message) => {
-        console.log('💬 New message received:', message);
-        if (currentChannel && message.channel_id === currentChannel.id) {
-            addMessageToChat(message);
-        }
-    });
-
-    socket.on('new_direct_message', (message) => {
-        console.log('📨 New DM received:', message);
-        if (currentDMUser && (message.from_user === currentDMUser.id || message.from_user === currentUser.id)) {
-            addMessageToChat(message);
-        }
-    });
-
-    socket.on('channel_created', (channel) => {
-        console.log('🎉 CHANNEL_CREATED EVENT RECEIVED:', channel);
-        channels.push(channel);
-        renderChannels();
-    });
-
-    socket.on('channel_updated', (channel) => {
-        console.log('✏️ Channel updated:', channel);
-        const index = channels.findIndex(c => c.id === channel.id);
-        if (index !== -1) {
-            channels[index] = channel;
-            renderChannels();
-            if (currentChannel && currentChannel.id === channel.id) {
-                currentChannel = channel;
-                document.getElementById('currentChannelName').textContent = `#${channel.name}`;
-            }
-        }
-    });
-
-    socket.on('channel_deleted', (channelId) => {
-        console.log('🗑️ Channel deleted:', channelId);
-        channels = channels.filter(c => c.id !== channelId);
-        renderChannels();
-        if (currentChannel && currentChannel.id === channelId) {
-            if (channels.length > 0) {
-                switchChannel(channels[0]);
-            } else {
-                document.getElementById('messagesContainer').innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Нет доступных каналов</div>';
-                document.getElementById('currentChannelName').textContent = 'Нет канала';
-            }
-        }
-    });
-
-    socket.on('message_error', (error) => {
-        console.error('❌ Message error:', error);
-        alert('Ошибка отправки сообщения: ' + error);
-    });
-
-    socket.on('channel_error', (error) => {
-        console.error('❌ Channel error:', error);
-        alert('Ошибка создания канала: ' + error);
-    });
-
-    socket.on('user_updated', (updatedUser) => {
-        console.log('👥 User updated via socket:', updatedUser);
-        const index = allUsers.findIndex(u => u.id === updatedUser.id);
-        if (index !== -1) {
-            allUsers[index] = updatedUser;
-        } else {
-            allUsers.push(updatedUser); // В случае если пользователь добавлен (хотя это не ожидается в данном сценарии)
-        }
-        // Обновить currentUser, если это текущий пользователь
-        if (currentUser && currentUser.id === updatedUser.id) {
-            currentUser = updatedUser;
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            updateUserProfile(); // Обновить отображение профиля
-        }
-        renderMembers();
-        renderFriendsList();
-        // Если модальное окно управления пользователями открыто, обновить его
-        if (!document.getElementById('userManagementModal').classList.contains('hidden')) {
-            loadAndRenderUsersForManagement();
-        }
-    });
-
-    socket.on('user_deleted', (userId) => {
-        console.log('👥 User deleted via socket:', userId);
-        allUsers = allUsers.filter(u => u.id !== userId);
-        renderMembers();
-        renderFriendsList();
-        // Если модальное окно управления пользователями открыто, обновить его
-        if (!document.getElementById('userManagementModal').classList.contains('hidden')) {
-            loadAndRenderUsersForManagement();
-        }
-        // Если удален текущий пользователь, выйти из системы
-        if (currentUser && currentUser.id === userId) {
-            logout();
-        }
-    });
-
-    // Функция для добавления сообщения в чат
-    function addMessageToChat(message) {
-        const container = document.getElementById('messagesContainer');
-        
-        const avatar = message.avatar_url && message.avatar_url !== 'default' ? 
-            `<img src="${message.avatar_url}" alt="Avatar">` : 
-            (message.display_name || message.username || message.from_display_name || message.from_username).charAt(0).toUpperCase();
-        
-        const isImage = message.content.startsWith('data:image');
-        const messageContent = isImage ? 
-            `<img src="${message.content}" class="message-image" onclick="viewImage('${message.content}')">` : 
-            message.content;
-        
-        const authorName = message.display_name || message.username || message.from_display_name || message.from_username;
-        const canDelete = currentUser && (currentUser.isAdmin || currentUser.id === (message.user_id || message.from_user));
-        
-        const messageElement = document.createElement('div');
-        messageElement.className = 'message';
-        messageElement.setAttribute('data-message-id', message.id);
-        messageElement.innerHTML = `
-            <div class="message-avatar">${avatar}</div>
-            <div class="message-content">
-                <div class="message-header">
-                    <span class="message-author">${authorName}</span>
-                    <span class="message-time">${new Date(message.created_at).toLocaleTimeString('ru-RU', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                    })}</span>
-                </div>
-                <div class="message-text">${messageContent}</div>
-            </div>
-            ${canDelete ? `
-                <div class="message-actions">
-                    <button class="message-action-btn" onclick="deleteMessage(${message.id})">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            ` : ''}
-        `;
-        
-        container.appendChild(messageElement);
-        container.scrollTop = container.scrollHeight;
-    }
-
-    // ФУНКЦИИ АУТЕНТИФИКАЦИИ
-    function switchAuthTab(tab) {
-        document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-        document.getElementById('loginForm').style.display = 'none';
-        document.getElementById('registerForm').style.display = 'none';
-        
-        if (tab === 'login') {
-            document.querySelector('.auth-tab:nth-child(1)').classList.add('active');
-            document.getElementById('loginForm').style.display = 'block';
-        } else {
-            document.querySelector('.auth-tab:nth-child(2)').classList.add('active');
-            document.getElementById('registerForm').style.display = 'block';
-        }
-    }
-
-    async function login() {
-        const username = document.getElementById('loginUsername').value.trim();
-        const password = document.getElementById('loginPassword').value;
-        const errorDiv = document.getElementById('loginError');
-        
-        errorDiv.textContent = '';
-        
-        try {
-            const response = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                currentUser = data.user;
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                initApp();
-            } else {
-                errorDiv.textContent = data.error;
-            }
-        } catch (error) {
-            errorDiv.textContent = 'Ошибка соединения';
-        }
-    }
-
-    async function register() {
-        const username = document.getElementById('registerUsername').value.trim();
-        const password = document.getElementById('registerPassword').value;
-        const errorDiv = document.getElementById('registerError');
-        
-        errorDiv.textContent = '';
-        
-        try {
-            const response = await fetch('/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                errorDiv.textContent = 'Регистрация успешна! Теперь войдите.';
-                switchAuthTab('login');
-                document.getElementById('loginUsername').value = username;
-            } else {
-                errorDiv.textContent = data.error;
-            }
-        } catch (error) {
-            errorDiv.textContent = 'Ошибка соединения';
-        }
-    }
-
-    function logout() {
-        localStorage.removeItem('currentUser');
-        location.reload();
-    }
-
-    async function initApp() {
-        console.log('Инициализация приложения...');
-        document.getElementById('authScreen').classList.add('hidden');
-        document.getElementById('mainApp').classList.remove('hidden');
-        
-        updateUserProfile();
-        
-        console.log('Загрузка каналов...');
-        await loadChannels();
-        
-        console.log('Загрузка пользователей...');
-        await loadAllUsers();
-        
-        console.log('Отправка online статуса...');
-        socket.emit('user_online', currentUser);
-        
-        if (channels.length > 0) {
-            switchChannel(channels[0]);
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // БАЗОВЫЕ ФУНКЦИИ ДЛЯ КНОПОК
+        function login() {
+            console.log('Login clicked');
         }
 
-        document.getElementById('fileInput').addEventListener('change', handleImageUpload);
-        document.getElementById('avatarUpload').addEventListener('change', handleAvatarUpload);
-        
-        console.log('Приложение инициализировано');
-    }
-
-    function updateUserProfile() {
-        document.getElementById('userDisplayName').textContent = currentUser.displayName;
-        document.getElementById('userTag').textContent = `@${currentUser.username}`;
-        
-        const avatarElement = document.getElementById('userAvatar');
-        if (currentUser.avatar && currentUser.avatar !== 'default') {
-            avatarElement.innerHTML = `<img src="${currentUser.avatar}" alt="Avatar">`;
-        } else {
-            avatarElement.textContent = currentUser.displayName.charAt(0).toUpperCase();
+        function register() {
+            console.log('Register clicked');  
         }
-    }
 
-    async function loadChannels() {
-        try {
-            const response = await fetch('/api/channels');
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const data = await response.json();
-            console.log('Channels loaded:', data);
-            channels = Array.isArray(data) ? data : [];
-            renderChannels();
-        } catch (error) {
-            console.error('Ошибка загрузки каналов:', error);
-            channels = [];
-            renderChannels();
+        function switchAuthTab(tab) {
+            console.log('Switch tab:', tab);
         }
-    }
 
-    async function loadAllUsers() {
-        try {
-            console.log('Начало загрузки пользователей...');
-            const response = await fetch('/api/users/all');
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            allUsers = await response.json();
-            console.log('Успешно загружены пользователи:', allUsers.length);
-        } catch (error) {
-            console.error('Ошибка загрузки пользователей:', error);
-            allUsers = [
-                { id: 1, username: 'Lenkov', display_name: 'Lenkov', avatar_url: 'default', is_admin: true },
-                { id: 2, username: '9nge', display_name: '9nge', avatar_url: 'default', is_admin: true },
-                { id: 3, username: 'test', display_name: 'test', avatar_url: 'default', is_admin: false }
-            ];
-            console.log('Используем тестовых пользователей');
+        function viewImage(src) {
+            window.open(src, '_blank');
         }
-    }
 
-    function switchView(view) {
-        currentView = view;
-        document.querySelectorAll('.server-icon').forEach(icon => icon.classList.remove('active'));
-        event.target.closest('.server-icon').classList.add('active');
-        
-        if (view === 'server') {
-            document.getElementById('serverHeader').textContent = 'ClorumMax';
-            document.getElementById('searchContainer').style.display = 'none';
-            currentDMUser = null;
-            renderChannels();
-            if (channels.length > 0) {
-                switchChannel(channels[0]);
-            } else {
-                document.getElementById('messagesContainer').innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Нет доступных каналов</div>';
-                document.getElementById('currentChannelName').textContent = 'Нет канала';
-                document.getElementById('messageInput').placeholder = 'Нет канала';
-                document.getElementById('channelActions').style.display = 'none';
-            }
-        } else {
-            document.getElementById('serverHeader').textContent = 'Личные сообщения';
-            document.getElementById('searchContainer').style.display = 'block';
-            renderFriendsList();
-            document.getElementById('messagesContainer').innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Выберите пользователя для начала общения</div>';
-            document.getElementById('currentChannelName').textContent = 'Личные сообщения';
-            document.getElementById('messageInput').placeholder = 'Выберите пользователя';
-            document.getElementById('channelActions').style.display = 'none';
-        }
-    }
+        // ОСНОВНОЙ КОД ПРИЛОЖЕНИЯ
+        let socket = io();
+        let currentUser = null;
+        let currentView = 'server';
+        let currentChannel = null;
+        let currentDMUser = null;
+        let channels = [];
+        let onlineUsers = [];
+        let allUsers = [];
+        let selectedImage = null;
+        let isLoadingMessages = false;
 
-    function renderChannels() {
-        console.log('📋 Rendering channels:', channels);
-        const container = document.getElementById('channelsList');
-        const textChannels = channels.filter(c => c.type === 'text');
-        
-        let html = '<div class="channel-category">Текстовые каналы</div>';
-        
-        textChannels.forEach(channel => {
-            const isActive = currentChannel && currentChannel.id === channel.id;
-            const permissions = typeof channel.permissions === 'string' 
-                ? JSON.parse(channel.permissions) 
-                : channel.permissions;
-            
-            html += `
-                <div class="channel-item text ${isActive ? 'active' : ''}" 
-                     onclick="switchChannel(${JSON.stringify(channel).replace(/"/g, '&quot;')})">
-                    <span>${channel.name}</span>
-                    ${currentUser && currentUser.isAdmin ? `
-                        <div class="channel-actions-small">
-                            <button class="message-action-btn" onclick="event.stopPropagation(); showEditChannelModal(${channel.id})">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="message-action-btn" onclick="event.stopPropagation(); showChannelSettingsModal(${channel.id})">
-                                <i class="fas fa-cog"></i>
-                            </button>
-                            <button class="message-action-btn" onclick="event.stopPropagation(); showDeleteChannelModal(${channel.id})">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    ` : ''}
-                </div>
-            `;
+        // 🎛️ WEBRTC ПЕРЕМЕННЫЕ
+        let localStream = null;
+        let remoteStream = null;
+        let peerConnection = null;
+        let currentCall = null;
+        let callTimer = null;
+        let callStartTime = null;
+        let isMuted = false;
+
+        // КОНФИГУРАЦИЯ WEBRTC
+        const rtcConfiguration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+        };
+
+        // ОБРАБОТЧИКИ SOCKET.IO
+        socket.on('connect', () => {
+            console.log('✅ SOCKET CONNECTED TO SERVER');
         });
-        
-        if (currentUser && currentUser.isAdmin) {
-            html += '<div class="add-channel" onclick="showCreateChannelModal()">+ Создать канал</div>';
-            html += '<div class="add-channel" onclick="showUserManagementModal()">Управление пользователями</div>';
-        }
-        
-        container.innerHTML = html;
-    }
 
-    function renderFriendsList() {
-        const container = document.getElementById('channelsList');
-        const otherUsers = allUsers.filter(user => user.id !== currentUser.id);
-        
-        let html = '<div class="channel-category">Все пользователи</div>';
-        
-        if (otherUsers.length === 0) {
-            html += `
-                <div style="color: var(--text-muted); padding: 20px; text-align: center;">
-                    <i class="fas fa-users" style="font-size: 24px; margin-bottom: 10px; display: block;"></i>
-                    Пользователи не найдены
-                </div>
-            `;
-        } else {
-            otherUsers.forEach(user => {
-                const isOnline = onlineUsers.some(u => u.id === user.id);
-                const displayName = user.display_name || user.username;
-                const avatar = user.avatar_url && user.avatar_url !== 'default' ? 
-                    `<img src="${user.avatar_url}" alt="${displayName}">` : 
-                    displayName.charAt(0).toUpperCase();
-                
-                html += `
-                    <div class="channel-item dm">
-                        <div class="member-avatar">${avatar}</div>
-                        <span class="member-name">${displayName}</span>
-                        ${isOnline ? '<div class="online-indicator" title="В сети"></div>' : '<div style="width: 8px;"></div>'}
-                        <div class="user-call-actions">
-                            <button class="call-btn audio-call" onclick="startCall(${user.id}, 'audio')" title="Audio call">
-                                <i class="fas fa-phone"></i>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-        }
-        
-        container.innerHTML = html;
-    }
-
-    async function switchChannel(channel) {
-        if (isLoadingMessages) return;
-        
-        isLoadingMessages = true;
-        currentChannel = channel;
-        currentDMUser = null;
-        
-        document.getElementById('currentChannelName').textContent = `#${channel.name}`;
-        document.getElementById('messageInput').placeholder = `Написать сообщение в #${channel.name}`;
-        
-        if (currentUser && currentUser.isAdmin) {
-            document.getElementById('channelActions').style.display = 'flex';
-        } else {
-            document.getElementById('channelActions').style.display = 'none';
-        }
-        
-        renderChannels();
-        
-        const container = document.getElementById('messagesContainer');
-        container.innerHTML = '<div class="loading">Загрузка сообщений...</div>';
-        
-        try {
-            const response = await fetch(`/api/channels/${channel.id}/messages`);
-            const messages = await response.json();
-            
-            setTimeout(() => {
-                renderMessages(messages);
-                isLoadingMessages = false;
-            }, 100);
-        } catch (error) {
-            console.error('Ошибка загрузки сообщений:', error);
-            container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Ошибка загрузки сообщений</div>';
-            isLoadingMessages = false;
-        }
-    }
-
-    async function openDM(userId) {
-        if (isLoadingMessages) return;
-        
-        isLoadingMessages = true;
-        const user = allUsers.find(u => u.id === userId);
-        currentDMUser = user;
-        currentChannel = null;
-        
-        document.getElementById('currentChannelName').textContent = user.display_name || user.username;
-        document.getElementById('messageInput').placeholder = `Написать сообщение для ${user.display_name || user.username}`;
-        document.getElementById('channelActions').style.display = 'none';
-        
-        const container = document.getElementById('messagesContainer');
-        container.innerHTML = '<div class="loading">Загрузка сообщений...</div>';
-        
-        try {
-            const response = await fetch(`/api/direct-messages/${currentUser.id}/${userId}`);
-            const messages = await response.json();
-            
-            setTimeout(() => {
-                renderDMMessages(messages);
-                isLoadingMessages = false;
-            }, 100);
-        } catch (error) {
-            console.error('Ошибка загрузки ЛС:', error);
-            container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Ошибка загрузки сообщений</div>';
-            isLoadingMessages = false;
-        }
-    }
-
-    function renderMessages(messages) {
-        const container = document.getElementById('messagesContainer');
-        
-        if (messages.length === 0) {
-            container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Здесь пока нет сообщений</div>';
-            return;
-        }
-        
-        container.innerHTML = messages.map(msg => {
-            const avatar = msg.avatar_url && msg.avatar_url !== 'default' ? 
-                `<img src="${msg.avatar_url}" alt="Avatar">` : 
-                (msg.display_name || msg.username).charAt(0).toUpperCase();
-            
-            const isImage = msg.content.startsWith('data:image');
-            const messageContent = isImage ? 
-                `<img src="${msg.content}" class="message-image" onclick="viewImage('${msg.content}')">` : 
-                msg.content;
-            
-            const canDelete = currentUser && (currentUser.isAdmin || currentUser.id === msg.user_id);
-            
-            return `
-                <div class="message" data-message-id="${msg.id}">
-                    <div class="message-avatar">${avatar}</div>
-                    <div class="message-content">
-                        <div class="message-header">
-                            <span class="message-author">${msg.display_name || msg.username}</span>
-                            <span class="message-time">${new Date(msg.created_at).toLocaleTimeString('ru-RU', { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                            })}</span>
-                        </div>
-                        <div class="message-text">${messageContent}</div>
-                    </div>
-                    ${canDelete ? `
-                        <div class="message-actions">
-                            <button class="message-action-btn" onclick="deleteMessage(${msg.id})">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    ` : ''}
-                </div>
-            `;
-        }).join('');
-        
-        container.scrollTop = container.scrollHeight;
-    }
-
-    function renderDMMessages(messages) {
-        const container = document.getElementById('messagesContainer');
-        
-        if (messages.length === 0) {
-            container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Здесь пока нет сообщений</div>';
-            return;
-        }
-        
-        container.innerHTML = messages.map(msg => {
-            const avatar = msg.from_avatar && msg.from_avatar !== 'default' ? 
-                `<img src="${msg.from_avatar}" alt="Avatar">` : 
-                (msg.from_display_name || msg.from_username).charAt(0).toUpperCase();
-            
-            const isImage = msg.content.startsWith('data:image');
-            const messageContent = isImage ? 
-                `<img src="${msg.content}" class="message-image" onclick="viewImage('${msg.content}')">` : 
-                msg.content;
-            
-            const canDelete = currentUser && currentUser.id === msg.from_user;
-            
-            return `
-                <div class="message" data-message-id="${msg.id}">
-                    <div class="message-avatar">${avatar}</div>
-                    <div class="message-content">
-                        <div class="message-header">
-                            <span class="message-author">${msg.from_display_name || msg.from_username}</span>
-                            <span class="message-time">${new Date(msg.created_at).toLocaleTimeString('ru-RU', { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                            })}</span>
-                        </div>
-                        <div class="message-text">${messageContent}</div>
-                    </div>
-                    ${canDelete ? `
-                        <div class="message-actions">
-                            <button class="message-action-btn" onclick="deleteDirectMessage(${msg.id})">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    ` : ''}
-                </div>
-            `;
-        }).join('');
-        
-        container.scrollTop = container.scrollHeight;
-    }
-
-    function renderMembers() {
-        const container = document.getElementById('membersList');
-        const onlineCount = onlineUsers.length;
-        
-        document.getElementById('onlineCount').textContent = onlineCount;
-        
-        container.innerHTML = onlineUsers.map(user => {
-            const avatar = user.avatar && user.avatar !== 'default' ? 
-                `<img src="${user.avatar}" alt="Avatar">` : 
-                user.displayName.charAt(0).toUpperCase();
-            
-            return `
-                <div class="member-item" onclick="openDM(${user.id})">
-                    <div class="member-avatar">${avatar}</div>
-                    <div class="member-name">${user.displayName}</div>
-                    ${user.isAdmin ? '<div class="admin-badge">ADMIN</div>' : ''}
-                    <div class="online-indicator"></div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    function handleMessageKeypress(event) {
-        if (event.key === 'Enter' && !event.shiftKey) {
-            event.preventDefault();
-            sendMessage();
-        }
-    }
-
-    function sendMessage() {
-        const input = document.getElementById('messageInput');
-        let content = input.value.trim();
-        
-        if (selectedImage) {
-            content = selectedImage;
-        }
-        
-        if (content) {
-            if (currentView === 'server' && currentChannel) {
-                socket.emit('send_message', {
-                    channelId: currentChannel.id,
-                    content: content
-                });
-            } else if (currentView === 'friends' && currentDMUser) {
-                socket.emit('send_direct_message', {
-                    toUserId: currentDMUser.id,
-                    content: content
-                });
+        socket.on('online_users', (users) => {
+            console.log('👥 Online users received:', users);
+            onlineUsers = users;
+            renderMembers();
+            if (currentView === 'friends') {
+                renderFriendsList();
             }
-            input.value = '';
-            clearImagePreview();
-        }
-    }
-
-    function handleImageUpload(event) {
-        const file = event.target.files[0];
-        if (file && file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                selectedImage = e.target.result;
-                document.getElementById('imagePreview').src = selectedImage;
-                document.getElementById('imagePreview').style.display = 'block';
-            };
-            reader.readAsDataURL(file);
-        }
-    }
-
-    function handleAvatarUpload(event) {
-        const file = event.target.files[0];
-        if (file && file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('avatarUpload').dataset.imageData = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-    }
-
-    function clearImagePreview() {
-        selectedImage = null;
-        document.getElementById('imagePreview').style.display = 'none';
-        document.getElementById('fileInput').value = '';
-    }
-
-    function viewImage(src) {
-        window.open(src, '_blank');
-    }
-
-    async function searchUsers() {
-        const query = document.getElementById('searchInput').value.trim();
-        if (query.length < 2) {
-            document.getElementById('searchResults').innerHTML = '';
-            return;
-        }
-        
-        try {
-            const response = await fetch(`/api/users/search/${query}`);
-            const users = await response.json();
-            
-            const results = document.getElementById('searchResults');
-            results.innerHTML = users.map(user => {
-                const avatar = user.avatar_url && user.avatar_url !== 'default' ? 
-                    `<img src="${user.avatar_url}" alt="Avatar">` : 
-                    (user.display_name || user.username).charAt(0).toUpperCase();
-                
-                return `
-                    <div class="search-result-item" onclick="openDM(${user.id})">
-                        <div class="member-avatar">${avatar}</div>
-                        <div class="member-name">${user.display_name || user.username}</div>
-                    </div>
-                `;
-            }).join('');
-        } catch (error) {
-            console.error('Ошибка поиска:', error);
-        }
-    }
-
-    // 🎛️ ОБНОВЛЕННАЯ WEBRTC ЛОГИКА
-    let localStream = null;
-    let remoteStream = null;
-    let peerConnection = null;
-    let currentCall = null;
-    let callTimer = null;
-    let callStartTime = null;
-    let isMuted = false;
-    let isCameraOn = false;
-
-    // Конфигурация STUN серверов
-    const rtcConfiguration = {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' }
-        ]
-    };
-
-    // Функция для начала звонка
-    async function startCall(userId, callType = 'audio') {
-        if (currentCall) {
-            alert('Уже в активном звонке');
-            return;
-        }
-        
-        try {
-            console.log(`Starting ${callType} call with user ${userId}`);
-            
-            // Для аудио звонка - только микрофон, для видео - камера и микрофон
-            const mediaConstraints = {
-                audio: true,
-                video: callType === 'video'
-            };
-            
-            // Получаем медиапоток
-            localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
-            
-            // Настраиваем состояние медиа
-            isMuted = false;
-            isCameraOn = callType === 'video';
-            
-            // Показываем локальное видео только для видеозвонков
-            if (callType === 'video') {
-                showLocalVideo(localStream);
-            }
-            
-            // Создаем peer connection
-            createPeerConnection();
-            
-            // Добавляем треки в соединение
-            localStream.getTracks().forEach(track => {
-                peerConnection.addTrack(track, localStream);
-            });
-            
-            // Сохраняем информацию о текущем звонке
-            currentCall = {
-                userId: userId,
-                type: callType,
-                withVideo: callType === 'video'
-            };
-            
-            // Отправляем сигнал о звонке через сокет
-            socket.emit('webrtc_call', {
-                toUserId: userId,
-                callType: callType
-            });
-            
-            // Показываем интерфейс звонка и медиа-контролы
-            showCallInterface('calling', `Calling ${getUserName(userId)}...`, callType);
-            showMediaControls(callType);
-            
-        } catch (error) {
-            console.error('Error starting call:', error);
-            alert('Error accessing camera/microphone: ' + error.message);
-        }
-    }
-
-    // Функция создания peer connection
-    function createPeerConnection() {
-        peerConnection = new RTCPeerConnection(rtcConfiguration);
-        
-        // Обработка удаленного потока
-        peerConnection.ontrack = (event) => {
-            console.log('Received remote stream');
-            remoteStream = event.streams[0];
-            showRemoteVideo(remoteStream);
-            updateCallStatus('Connected');
-            startCallTimer();
-        };
-        
-        // Обработка ICE кандидатов
-        peerConnection.onicecandidate = (event) => {
-            if (event.candidate && currentCall) {
-                socket.emit('webrtc_ice_candidate', {
-                    toUserId: currentCall.userId || currentCall.fromUserId,
-                    candidate: event.candidate
-                });
-            }
-        };
-        
-        // Мониторинг состояния соединения
-        peerConnection.onconnectionstatechange = () => {
-            console.log('Connection state:', peerConnection.connectionState);
-            if (peerConnection.connectionState === 'connected') {
-                updateCallStatus('Connected');
-                startCallTimer();
-            } else if (peerConnection.connectionState === 'disconnected') {
-                updateCallStatus('Disconnected');
-            } else if (peerConnection.connectionState === 'failed') {
-                updateCallStatus('Connection failed');
-                setTimeout(() => {
-                    endCall();
-                }, 2000);
-            }
-        };
-    }
-
-    // Функция принятия входящего звонка
-    async function acceptCall() {
-        if (!currentCall) return;
-        
-        try {
-            const callType = currentCall.type;
-            
-            // Для аудио звонка - только микрофон, для видео - камера и микрофон
-            const mediaConstraints = {
-                audio: true,
-                video: callType === 'video'
-            };
-            
-            localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
-            
-            // Настраиваем состояние медиа
-            isMuted = false;
-            isCameraOn = callType === 'video';
-            
-            // Показываем локальное видео только для видеозвонков
-            if (callType === 'video') {
-                showLocalVideo(localStream);
-            }
-            
-            createPeerConnection();
-            
-            localStream.getTracks().forEach(track => {
-                peerConnection.addTrack(track, localStream);
-            });
-            
-            // Создаем ответ
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            
-            // Отправляем ответ
-            socket.emit('webrtc_answer', {
-                toUserId: currentCall.fromUserId,
-                answer: peerConnection.localDescription
-            });
-            
-            // Уведомляем о принятии звонка
-            socket.emit('webrtc_accept_call', {
-                fromUserId: currentCall.fromUserId
-            });
-            
-            showCallInterface('active', `In call with ${getUserName(currentCall.fromUserId)}`, callType);
-            startCallTimer();
-            
-        } catch (error) {
-            console.error('Error accepting call:', error);
-            alert('Error accessing camera/microphone: ' + error.message);
-        }
-    }
-
-    // Функция отклонения звонка
-    function rejectCall() {
-        if (currentCall && currentCall.fromUserId) {
-            socket.emit('webrtc_reject_call', {
-                fromUserId: currentCall.fromUserId
-            });
-        }
-        cleanupCall();
-    }
-
-    // Функция завершения звонка
-    function endCall() {
-        if (currentCall) {
-            socket.emit('webrtc_end_call', {
-                toUserId: currentCall.userId || currentCall.fromUserId
-            });
-        }
-        cleanupCall();
-    }
-
-    // Управление микрофоном
-    function toggleMute() {
-        if (!localStream) return;
-        
-        const audioTracks = localStream.getAudioTracks();
-        audioTracks.forEach(track => {
-            track.enabled = !track.enabled;
         });
-        
-        isMuted = !isMuted;
-        updateMediaControls();
-    }
 
-    // Управление камерой
-    function toggleCamera() {
-        if (!localStream || currentCall.type !== 'video') return;
-        
-        const videoTracks = localStream.getVideoTracks();
-        videoTracks.forEach(track => {
-            track.enabled = !track.enabled;
+        socket.on('new_channel_message', (message) => {
+            console.log('💬 New message received:', message);
+            if (currentChannel && message.channel_id === currentChannel.id) {
+                addMessageToChat(message);
+            }
         });
-        
-        isCameraOn = !isCameraOn;
-        updateMediaControls();
-    }
 
-    // Обновление кнопок управления медиа
-    function updateMediaControls() {
-        const muteBtn = document.getElementById('muteBtn');
-        const cameraBtn = document.getElementById('cameraBtn');
-        
-        if (muteBtn) {
-            muteBtn.classList.toggle('muted', isMuted);
-            muteBtn.innerHTML = isMuted ? 
-                '<i class="fas fa-microphone-slash"></i> Unmute' : 
-                '<i class="fas fa-microphone"></i> Mute';
-        }
-        
-        if (cameraBtn) {
-            cameraBtn.classList.toggle('active', isCameraOn);
-            cameraBtn.innerHTML = isCameraOn ? 
-                '<i class="fas fa-video-slash"></i> Camera Off' : 
-                '<i class="fas fa-video"></i> Camera On';
-            cameraBtn.style.display = currentCall.type === 'video' ? 'flex' : 'none';
-        }
-    }
+        socket.on('new_direct_message', (message) => {
+            console.log('📨 New DM received:', message);
+            if (currentDMUser && (message.from_user === currentDMUser.id || message.from_user === currentUser.id)) {
+                addMessageToChat(message);
+            }
+        });
 
-    // Таймер звонка
-    function startCallTimer() {
-        callStartTime = new Date();
-        updateCallTimer();
-        callTimer = setInterval(updateCallTimer, 1000);
-    }
+        socket.on('channel_created', (channel) => {
+            console.log('🎉 CHANNEL_CREATED EVENT RECEIVED:', channel);
+            channels.push(channel);
+            renderChannels();
+        });
 
-    function updateCallTimer() {
-        if (!callStartTime) return;
-        
-        const now = new Date();
-        const diff = Math.floor((now - callStartTime) / 1000);
-        const minutes = Math.floor(diff / 60);
-        const seconds = diff % 60;
-        
-        const timerElement = document.getElementById('callTimer');
-        if (timerElement) {
-            timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
-    }
-
-    function stopCallTimer() {
-        if (callTimer) {
-            clearInterval(callTimer);
-            callTimer = null;
-        }
-        callStartTime = null;
-    }
-
-    // Очистка после звонка
-    function cleanupCall() {
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-            localStream = null;
-        }
-        
-        if (peerConnection) {
-            peerConnection.close();
-            peerConnection = null;
-        }
-        
-        stopCallTimer();
-        hideCallInterface();
-        currentCall = null;
-        isMuted = false;
-        isCameraOn = false;
-    }
-
-    // Функции отображения видео
-    function showLocalVideo(stream) {
-        let localVideo = document.getElementById('localVideo');
-        if (!localVideo) {
-            localVideo = document.createElement('video');
-            localVideo.id = 'localVideo';
-            localVideo.autoplay = true;
-            localVideo.muted = true;
-            localVideo.playsInline = true;
-            document.body.appendChild(localVideo);
-        }
-        localVideo.srcObject = stream;
-        localVideo.style.display = 'block';
-        localVideo.play(); // Явно начинаем воспроизведение
-    }
-
-    function showRemoteVideo(stream) {
-        let remoteVideo = document.getElementById('remoteVideo');
-        if (!remoteVideo) {
-            remoteVideo = document.createElement('video');
-            remoteVideo.id = 'remoteVideo';
-            remoteVideo.autoplay = true;
-            remoteVideo.playsInline = true;
-            document.body.appendChild(remoteVideo);
-        }
-        remoteVideo.srcObject = stream;
-        remoteVideo.style.display = 'block';
-        remoteVideo.play(); // Явно начинаем воспроизведение
-    }
-
-    // Интерфейс звонка
-    function showCallInterface(state, status, callType) {
-        let callInterface = document.getElementById('callInterface');
-        if (!callInterface) {
-            callInterface = document.createElement('div');
-            callInterface.id = 'callInterface';
-            document.body.appendChild(callInterface);
-        }
-        
-        let buttons = '';
-        if (state === 'incoming') {
-            buttons = `
-                <button class="call-control-btn accept-call" onclick="acceptCall()">
-                    <i class="fas fa-phone"></i> Accept
-                </button>
-                <button class="call-control-btn reject-call" onclick="rejectCall()">
-                    <i class="fas fa-phone-slash"></i> Reject
-                </button>
-            `;
-        } else if (state === 'calling') {
-            buttons = `
-                <button class="call-control-btn end-call" onclick="endCall()">
-                    <i class="fas fa-phone-slash"></i> Cancel
-                </button>
-            `;
-        } else {
-            buttons = `
-                <button class="call-control-btn end-call" onclick="endCall()">
-                    <i class="fas fa-phone-slash"></i> End Call
-                </button>
-            `;
-            
-            // Добавляем управление медиа для активного звонка
-            showMediaControls(callType);
-        }
-        
-        const timerHtml = state === 'active' ? '<div class="call-timer" id="callTimer">00:00</div>' : '';
-        
-        callInterface.innerHTML = `
-            <div id="callStatus">${status}</div>
-            <div class="call-controls">
-                ${buttons}
-            </div>
-            ${timerHtml}
-        `;
-    }
-
-    function showMediaControls(callType) {
-        let mediaControls = document.getElementById('mediaControls');
-        if (!mediaControls) {
-            mediaControls = document.createElement('div');
-            mediaControls.id = 'mediaControls';
-            mediaControls.className = 'media-controls';
-            document.body.appendChild(mediaControls);
-        }
-        
-        mediaControls.innerHTML = `
-            <button class="media-control-btn mute-btn" id="muteBtn" onclick="toggleMute()">
-                <i class="fas fa-microphone"></i> Mute
-            </button>
-            ${callType === 'video' ? `
-            <button class="media-control-btn camera-btn" id="cameraBtn" onclick="toggleCamera()">
-                <i class="fas fa-video"></i> Camera On
-            </button>
-            ` : ''}
-        `;
-        
-        updateMediaControls();
-    }
-
-    function updateCallStatus(status) {
-        const statusElement = document.getElementById('callStatus');
-        if (statusElement) {
-            statusElement.textContent = status;
-        }
-    }
-
-    function hideCallInterface() {
-        const callInterface = document.getElementById('callInterface');
-        if (callInterface) {
-            callInterface.remove();
-        }
-        
-        const mediaControls = document.getElementById('mediaControls');
-        if (mediaControls) {
-            mediaControls.remove();
-        }
-        
-        const localVideo = document.getElementById('localVideo');
-        if (localVideo) localVideo.style.display = 'none';
-        
-        const remoteVideo = document.getElementById('remoteVideo');
-        if (remoteVideo) remoteVideo.style.display = 'none';
-    }
-
-    // Вспомогательная функция
-    function getUserName(userId) {
-        const user = allUsers.find(u => u.id === userId);
-        return user ? (user.display_name || user.username) : 'User';
-    }
-
-    // 🎯 ОБРАБОТЧИКИ СОКЕТОВ ДЛЯ WEBRTC
-
-    // Входящий звонок
-    socket.on('webrtc_incoming_call', (data) => {
-        if (currentCall) {
-            // Уже в звонке, отклоняем входящий
-            socket.emit('webrtc_reject_call', {
-                fromUserId: data.fromUserId
-            });
-            return;
-        }
-        
-        currentCall = {
-            fromUserId: data.fromUserId,
-            type: data.callType
-        };
-        
-        const callTypeText = data.callType === 'video' ? 'Video' : 'Audio';
-        showCallInterface('incoming', `Incoming ${callTypeText} call from ${data.fromDisplayName}`, data.callType);
-    });
-
-    // Звонок принят
-    socket.on('webrtc_call_accepted', (data) => {
-        if (!currentCall) return;
-        
-        updateCallStatus(`Call accepted - connecting...`);
-        
-        // Создаем оффер
-        createOffer();
-    });
-
-    async function createOffer() {
-        try {
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            
-            socket.emit('webrtc_offer', {
-                toUserId: currentCall.userId,
-                offer: offer
-            });
-        } catch (error) {
-            console.error('Error creating offer:', error);
-        }
-    }
-
-    // Получение оффера
-    socket.on('webrtc_offer', async (data) => {
-        if (!currentCall) return;
-        
-        try {
-            await peerConnection.setRemoteDescription(data.offer);
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            
-            socket.emit('webrtc_answer', {
-                toUserId: data.fromUserId,
-                answer: answer
-            });
-            
-            updateCallStatus(`In call with ${getUserName(data.fromUserId)}`);
-            startCallTimer();
-        } catch (error) {
-            console.error('Error handling offer:', error);
-        }
-    });
-
-    // Получение ответа
-    socket.on('webrtc_answer', async (data) => {
-        if (!peerConnection || !currentCall) return;
-        
-        try {
-            await peerConnection.setRemoteDescription(data.answer);
-            updateCallStatus(`In call with ${getUserName(data.fromUserId)}`);
-            startCallTimer();
-        } catch (error) {
-            console.error('Error handling answer:', error);
-        }
-    });
-
-    // Получение ICE кандидата
-    socket.on('webrtc_ice_candidate', async (data) => {
-        if (!peerConnection || !currentCall) return;
-        
-        try {
-            await peerConnection.addIceCandidate(data.candidate);
-        } catch (error) {
-            console.error('Error adding ICE candidate:', error);
-        }
-    });
-
-    // Звонок завершен
-    socket.on('webrtc_call_ended', () => {
-        cleanupCall();
-        alert('Call ended');
-    });
-
-    // Звонок отклонен
-    socket.on('webrtc_call_rejected', () => {
-        if (currentCall) {
-            cleanupCall();
-            alert('Call was rejected');
-        }
-    });
-
-    // ЗАГРУЗКА ПРИЛОЖЕНИЯ
-    window.addEventListener('load', function() {
-        const savedUser = localStorage.getItem('currentUser');
-        if (savedUser) {
-            currentUser = JSON.parse(savedUser);
-            initApp();
-        }
-    });
-
-    console.log('All functions loaded:', {
-        login: typeof login,
-        register: typeof register, 
-        switchAuthTab: typeof switchAuthTab,
-        switchView: typeof switchView,
-        startCall: typeof startCall
-    });
-
-    // Функции управления пользователями
-    async function showUserManagementModal() {
-        document.getElementById('userManagementModal').classList.remove('hidden');
-        await loadAndRenderUsersForManagement();
-    }
-
-    function hideUserManagementModal() {
-        document.getElementById('userManagementModal').classList.add('hidden');
-    }
-
-    async function loadAndRenderUsersForManagement() {
-        const userManagementList = document.getElementById('userManagementList');
-        userManagementList.innerHTML = '<div class="loading">Загрузка пользователей...</div>';
-
-        try {
-            const response = await fetch('/api/users/all');
-            const users = await response.json();
-
-            if (users.length === 0) {
-                userManagementList.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Пользователи не найдены</div>';
+        // 🎯 WEBRTC ОБРАБОТЧИКИ
+        socket.on('webrtc_incoming_call', (data) => {
+            if (currentCall) {
+                socket.emit('webrtc_reject_call', { fromUserId: data.fromUserId });
                 return;
             }
+            
+            currentCall = {
+                fromUserId: data.fromUserId,
+                type: data.callType
+            };
+            
+            showCallInterface('incoming', `Входящий звонок от ${data.fromDisplayName}`);
+        });
 
-            userManagementList.innerHTML = users.map(user => {
-                const avatar = user.avatar_url && user.avatar_url !== 'default' ? 
-                    `<img src="${user.avatar_url}" alt="Avatar">` : 
-                    (user.display_name || user.username).charAt(0).toUpperCase();
+        socket.on('webrtc_call_accepted', (data) => {
+            if (!currentCall) return;
+            updateCallStatus('Соединение...');
+            createOffer();
+        });
+
+        socket.on('webrtc_offer', async (data) => {
+            if (!currentCall) return;
+            
+            try {
+                await peerConnection.setRemoteDescription(data.offer);
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
                 
-                return `
-                    <div class="member-item" style="justify-content: space-between; padding: 10px;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <div class="member-avatar">${avatar}</div>
-                            <div class="member-name">${user.display_name || user.username}</div>
-                            ${user.isAdmin ? '<div class="admin-badge">ADMIN</div>' : ''}
-                            ${user.isBanned ? '<span style="color: var(--danger); font-size: 12px; margin-left: 5px;">(Забанен)</span>' : ''}
-                            ${user.isMuted ? '<span style="color: var(--text-muted); font-size: 12px; margin-left: 5px;">(Замучен)</span>' : ''}
-                        </div>
-                        <div class="channel-actions-small">
-                            <button class="message-action-btn" onclick="showEditUserModal(${user.id})">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="message-action-btn" onclick="deleteUserConfirm(${user.id}, '${user.username}')">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
+                socket.emit('webrtc_answer', {
+                    toUserId: data.fromUserId,
+                    answer: answer
+                });
+                
+                updateCallStatus(`В разговоре`);
+                startCallTimer();
+            } catch (error) {
+                console.error('Error handling offer:', error);
+            }
+        });
+
+        socket.on('webrtc_answer', async (data) => {
+            if (!peerConnection || !currentCall) return;
+            
+            try {
+                await peerConnection.setRemoteDescription(data.answer);
+                updateCallStatus(`В разговоре`);
+                startCallTimer();
+            } catch (error) {
+                console.error('Error handling answer:', error);
+            }
+        });
+
+        socket.on('webrtc_ice_candidate', async (data) => {
+            if (!peerConnection || !currentCall) return;
+            
+            try {
+                await peerConnection.addIceCandidate(data.candidate);
+            } catch (error) {
+                console.error('Error adding ICE candidate:', error);
+            }
+        });
+
+        socket.on('webrtc_call_ended', () => {
+            cleanupCall();
+            alert('Звонок завершен');
+        });
+
+        socket.on('webrtc_call_rejected', () => {
+            if (currentCall) {
+                cleanupCall();
+                alert('Звонок отклонен');
+            }
+        });
+
+        // 🎛️ WEBRTC ФУНКЦИИ
+        async function startCall(userId, callType = 'audio') {
+            if (currentCall) {
+                alert('Уже в активном звонке');
+                return;
+            }
+            
+            try {
+                console.log(`Starting ${callType} call with user ${userId}`);
+                
+                // Получаем доступ к микрофону
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    },
+                    video: false
+                });
+                
+                // Создаем peer connection
+                createPeerConnection();
+                
+                // Добавляем аудио треки в соединение
+                localStream.getAudioTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+                
+                // Сохраняем информацию о звонке
+                currentCall = {
+                    userId: userId,
+                    type: callType
+                };
+                
+                // Отправляем запрос на звонок
+                socket.emit('webrtc_call', {
+                    toUserId: userId,
+                    callType: callType
+                });
+                
+                showCallInterface('calling', `Звонок пользователю ${getUserName(userId)}...`);
+                
+            } catch (error) {
+                console.error('Error starting call:', error);
+                alert('Ошибка доступа к микрофону: ' + error.message);
+            }
+        }
+
+        function createPeerConnection() {
+            peerConnection = new RTCPeerConnection(rtcConfiguration);
+            
+            // Обработка удаленного потока
+            peerConnection.ontrack = (event) => {
+                console.log('🔄 Received remote stream');
+                remoteStream = event.streams[0];
+                
+                // ВОТ КЛЮЧЕВОЙ МОМЕНТ: правильно обрабатываем аудио
+                const remoteAudio = document.getElementById('remoteAudio');
+                remoteAudio.srcObject = remoteStream;
+                remoteAudio.play().catch(e => console.log('Audio play error:', e));
+                
+                updateCallStatus('Соединение установлено');
+                startCallTimer();
+            };
+            
+            // Обработка ICE кандидатов
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate && currentCall) {
+                    socket.emit('webrtc_ice_candidate', {
+                        toUserId: currentCall.userId || currentCall.fromUserId,
+                        candidate: event.candidate
+                    });
+                }
+            };
+            
+            // Мониторинг состояния соединения
+            peerConnection.onconnectionstatechange = () => {
+                console.log('Connection state:', peerConnection.connectionState);
+                if (peerConnection.connectionState === 'connected') {
+                    updateCallStatus('Соединение установлено');
+                }
+            };
+        }
+
+        async function acceptCall() {
+            if (!currentCall) return;
+            
+            try {
+                // Получаем доступ к микрофону
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    },
+                    video: false
+                });
+                
+                createPeerConnection();
+                
+                // Добавляем аудио треки
+                localStream.getAudioTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+                
+                // Создаем и отправляем ответ
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                
+                socket.emit('webrtc_answer', {
+                    toUserId: currentCall.fromUserId,
+                    answer: peerConnection.localDescription
+                });
+                
+                socket.emit('webrtc_accept_call', {
+                    fromUserId: currentCall.fromUserId
+                });
+                
+                showCallInterface('active', `В разговоре с ${getUserName(currentCall.fromUserId)}`);
+                startCallTimer();
+                
+            } catch (error) {
+                console.error('Error accepting call:', error);
+                alert('Ошибка доступа к микрофону: ' + error.message);
+            }
+        }
+
+        async function createOffer() {
+            try {
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                
+                socket.emit('webrtc_offer', {
+                    toUserId: currentCall.userId,
+                    offer: offer
+                });
+            } catch (error) {
+                console.error('Error creating offer:', error);
+            }
+        }
+
+        function rejectCall() {
+            if (currentCall && currentCall.fromUserId) {
+                socket.emit('webrtc_reject_call', {
+                    fromUserId: currentCall.fromUserId
+                });
+            }
+            cleanupCall();
+        }
+
+        function endCall() {
+            if (currentCall) {
+                socket.emit('webrtc_end_call', {
+                    toUserId: currentCall.userId || currentCall.fromUserId
+                });
+            }
+            cleanupCall();
+        }
+
+        function toggleMute() {
+            if (!localStream) return;
+            
+            const audioTracks = localStream.getAudioTracks();
+            audioTracks.forEach(track => {
+                track.enabled = !track.enabled;
+            });
+            
+            isMuted = !isMuted;
+            updateMediaControls();
+        }
+
+        function updateMediaControls() {
+            const muteBtn = document.getElementById('muteBtn');
+            if (muteBtn) {
+                muteBtn.classList.toggle('muted', isMuted);
+                muteBtn.innerHTML = isMuted ? 
+                    '<i class="fas fa-microphone-slash"></i> Включить' : 
+                    '<i class="fas fa-microphone"></i> Выключить';
+            }
+        }
+
+        function startCallTimer() {
+            callStartTime = new Date();
+            updateCallTimer();
+            callTimer = setInterval(updateCallTimer, 1000);
+        }
+
+        function updateCallTimer() {
+            if (!callStartTime) return;
+            
+            const now = new Date();
+            const diff = Math.floor((now - callStartTime) / 1000);
+            const minutes = Math.floor(diff / 60);
+            const seconds = diff % 60;
+            
+            const timerElement = document.getElementById('callTimer');
+            if (timerElement) {
+                timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }
+
+        function stopCallTimer() {
+            if (callTimer) {
+                clearInterval(callTimer);
+                callTimer = null;
+            }
+            callStartTime = null;
+        }
+
+        function cleanupCall() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            
+            stopCallTimer();
+            hideCallInterface();
+            currentCall = null;
+            isMuted = false;
+        }
+
+        function showCallInterface(state, status) {
+            let callInterface = document.getElementById('callInterface');
+            if (!callInterface) {
+                callInterface = document.createElement('div');
+                callInterface.id = 'callInterface';
+                document.body.appendChild(callInterface);
+            }
+            
+            let buttons = '';
+            if (state === 'incoming') {
+                buttons = `
+                    <button class="call-control-btn accept-call" onclick="acceptCall()">
+                        <i class="fas fa-phone"></i> Принять
+                    </button>
+                    <button class="call-control-btn reject-call" onclick="rejectCall()">
+                        <i class="fas fa-phone-slash"></i> Отклонить
+                    </button>
+                `;
+            } else if (state === 'calling') {
+                buttons = `
+                    <button class="call-control-btn end-call" onclick="endCall()">
+                        <i class="fas fa-phone-slash"></i> Отмена
+                    </button>
+                `;
+            } else {
+                buttons = `
+                    <button class="call-control-btn end-call" onclick="endCall()">
+                        <i class="fas fa-phone-slash"></i> Завершить
+                    </button>
+                `;
+                
+                showMediaControls();
+            }
+            
+            const timerHtml = state === 'active' ? '<div class="call-timer" id="callTimer">00:00</div>' : '';
+            
+            callInterface.innerHTML = `
+                <div id="callStatus">${status}</div>
+                <div class="call-controls">
+                    ${buttons}
+                </div>
+                ${timerHtml}
+            `;
+        }
+
+        function showMediaControls() {
+            let mediaControls = document.getElementById('mediaControls');
+            if (!mediaControls) {
+                mediaControls = document.createElement('div');
+                mediaControls.id = 'mediaControls';
+                mediaControls.className = 'media-controls';
+                document.body.appendChild(mediaControls);
+            }
+            
+            mediaControls.innerHTML = `
+                <button class="media-control-btn mute-btn" id="muteBtn" onclick="toggleMute()">
+                    <i class="fas fa-microphone"></i> Выключить
+                </button>
+            `;
+            
+            updateMediaControls();
+        }
+
+        function updateCallStatus(status) {
+            const statusElement = document.getElementById('callStatus');
+            if (statusElement) {
+                statusElement.textContent = status;
+            }
+        }
+
+        function hideCallInterface() {
+            const callInterface = document.getElementById('callInterface');
+            if (callInterface) {
+                callInterface.remove();
+            }
+            
+            const mediaControls = document.getElementById('mediaControls');
+            if (mediaControls) {
+                mediaControls.remove();
+            }
+            
+            const remoteAudio = document.getElementById('remoteAudio');
+            if (remoteAudio) {
+                remoteAudio.srcObject = null;
+            }
+        }
+
+        function getUserName(userId) {
+            const user = allUsers.find(u => u.id === userId);
+            return user ? (user.display_name || user.username) : 'User';
+        }
+
+        // ОСТАЛЬНЫЕ ФУНКЦИИ ЧАТА
+        function addMessageToChat(message) {
+            const container = document.getElementById('messagesContainer');
+            
+            const avatar = message.avatar_url && message.avatar_url !== 'default' ? 
+                `<img src="${message.avatar_url}" alt="Avatar">` : 
+                (message.display_name || message.username || message.from_display_name || message.from_username).charAt(0).toUpperCase();
+            
+            const isImage = message.content.startsWith('data:image');
+            const messageContent = isImage ? 
+                `<img src="${message.content}" class="message-image" onclick="viewImage(this.src)">` : 
+                message.content;
+            
+            const authorName = message.display_name || message.username || message.from_display_name || message.from_username;
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message';
+            messageElement.innerHTML = `
+                <div class="message-avatar">${avatar}</div>
+                <div class="message-content">
+                    <div class="message-header">
+                        <span class="message-author">${authorName}</span>
+                        <span class="message-time">${new Date(message.created_at).toLocaleTimeString('ru-RU', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        })}</span>
+                    </div>
+                    <div class="message-text">${messageContent}</div>
+                </div>
+            `;
+            
+            container.appendChild(messageElement);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function renderFriendsList() {
+            const container = document.getElementById('channelsList');
+            const otherUsers = allUsers.filter(user => user.id !== currentUser.id);
+            
+            let html = '<div class="channel-category">Все пользователи</div>';
+            
+            if (otherUsers.length === 0) {
+                html += `
+                    <div style="color: var(--text-muted); padding: 20px; text-align: center;">
+                        <i class="fas fa-users" style="font-size: 24px; margin-bottom: 10px; display: block;"></i>
+                        Пользователи не найдены
                     </div>
                 `;
-            }).join('');
-
-        } catch (error) {
-            console.error('Ошибка загрузки пользователей для управления:', error);
-            userManagementList.innerHTML = '<div style="text-align: center; color: var(--danger); padding: 20px;">Ошибка загрузки пользователей</div>';
-        }
-    }
-
-    let userToEdit = null;
-
-    async function showEditUserModal(userId) {
-        userToEdit = allUsers.find(u => u.id === userId);
-        if (!userToEdit) {
-            alert('Пользователь не найден.');
-            return;
-        }
-
-        document.getElementById('editUserModalTitle').textContent = `Редактировать ${userToEdit.username}`;
-        document.getElementById('editUserUsername').textContent = userToEdit.username;
-        document.getElementById('editUserDisplayName').textContent = userToEdit.display_name || 'N/A';
-        document.getElementById('editUserId').textContent = userToEdit.id;
-        document.getElementById('editUserIsAdmin').checked = userToEdit.isAdmin || false;
-        document.getElementById('editUserIsBanned').checked = userToEdit.isBanned || false;
-        document.getElementById('editUserIsMuted').checked = userToEdit.isMuted || false;
-
-        document.getElementById('editUserModal').classList.remove('hidden');
-    }
-
-    function hideEditUserModal() {
-        document.getElementById('editUserModal').classList.add('hidden');
-        userToEdit = null;
-    }
-
-    async function saveUserChanges() {
-        if (!userToEdit) return;
-
-        const isAdmin = document.getElementById('editUserIsAdmin').checked;
-        const isBanned = document.getElementById('editUserIsBanned').checked;
-        const isMuted = document.getElementById('editUserIsMuted').checked;
-
-        try {
-            const response = await fetch(`/api/users/${userToEdit.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ isAdmin, isBanned, isMuted })
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                alert('Изменения сохранены!');
-                // Обновить список пользователей
-                await loadAllUsers(); // Перезагрузить всех пользователей, чтобы обновить состояние
-                loadAndRenderUsersForManagement(); // Перерисовать список в модальном окне
-                hideEditUserModal();
-                // Отправить обновление через сокет, чтобы другие клиенты знали об изменениях
-                socket.emit('user_updated', data.user);
             } else {
-                alert('Ошибка сохранения: ' + data.error);
+                otherUsers.forEach(user => {
+                    const isOnline = onlineUsers.some(u => u.id === user.id);
+                    const displayName = user.display_name || user.username;
+                    const avatar = user.avatar_url && user.avatar_url !== 'default' ? 
+                        `<img src="${user.avatar_url}" alt="${displayName}">` : 
+                        displayName.charAt(0).toUpperCase();
+                    
+                    html += `
+                        <div class="channel-item dm">
+                            <div class="member-avatar">${avatar}</div>
+                            <span class="member-name">${displayName}</span>
+                            ${isOnline ? '<div class="online-indicator" title="В сети"></div>' : '<div style="width: 8px;"></div>'}
+                            <div class="user-call-actions">
+                                <button class="call-btn audio-call" onclick="startCall(${user.id}, 'audio')" title="Audio call">
+                                    <i class="fas fa-phone"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
             }
-        } catch (error) {
-            console.error('Ошибка сохранения изменений пользователя:', error);
-            alert('Ошибка соединения при сохранении изменений.');
+            
+            container.innerHTML = html;
         }
-    }
 
-    function deleteUserConfirm(userId, username) {
-        if (confirm(`Вы уверены, что хотите удалить пользователя ${username}? Это действие необратимо.`)) {
-            deleteUser(userId);
-        }
-    }
-
-    async function deleteUser(userId) {
-        try {
-            const response = await fetch(`/api/users/${userId}`, {
-                method: 'DELETE'
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                alert('Пользователь успешно удален!');
-                // Обновить список пользователей
-                await loadAllUsers(); // Перезагрузить всех пользователей, чтобы обновить состояние
-                loadAndRenderUsersForManagement(); // Перерисовать список в модальном окне
-                hideEditUserModal();
-                // Отправить обновление через сокет
-                socket.emit('user_deleted', userId);
-            } else {
-                alert('Ошибка удаления: ' + data.error);
+        // ЗАГРУЗКА ПРИЛОЖЕНИЯ
+        window.addEventListener('load', function() {
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                document.getElementById('authScreen').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                document.getElementById('userDisplayName').textContent = currentUser.displayName;
+                document.getElementById('userTag').textContent = `@${currentUser.username}`;
             }
-        } catch (error) {
-            console.error('Ошибка удаления пользователя:', error);
-            alert('Ошибка соединения при удалении пользователя.');
-        }
-    }
-</script>
+        });
+
+        console.log('WebRTC calls initialized');
+    </script>
 </body>
 </html>
