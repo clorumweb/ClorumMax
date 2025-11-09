@@ -93,10 +93,18 @@ app.get('/api/channels', (req, res) => {
 
 // Все пользователи
 app.get('/api/users/all', (req, res) => {
-    db.all("SELECT id, username, display_name, avatar_url, is_admin FROM users ORDER BY username", 
+    db.all("SELECT id, username, display_name, avatar_url, is_admin, is_banned, is_muted FROM users ORDER BY username", 
         (err, users) => {
             if (err) return res.status(500).json({ error: 'DB error' });
-            res.json(users);
+            res.json(users.map(user => ({
+                id: user.id,
+                username: user.username,
+                display_name: user.display_name,
+                avatar_url: user.avatar_url,
+                is_admin: user.is_admin === 1,
+                is_banned: user.is_banned === 1,
+                is_muted: user.is_muted === 1
+            })));
         }
     );
 });
@@ -143,6 +151,44 @@ app.get('/api/users/search/:query', (req, res) => {
         (err, users) => {
             if (err) return res.status(500).json({ error: 'DB error' });
             res.json(users);
+        }
+    );
+});
+
+// Обновление пользователя (админ-панель)
+app.put('/api/users/:userId', (req, res) => {
+    const userId = req.params.userId;
+    const { isAdmin, isBanned, isMuted } = req.body;
+    
+    // Здесь должна быть проверка на администратора
+    // В данный момент, для простоты, предполагаем, что запрос всегда приходит от админа.
+    // В реальном приложении нужна JWT-аутентификация и проверка ролей.
+
+    db.run(
+        "UPDATE users SET is_admin = ?, is_banned = ?, is_muted = ? WHERE id = ?",
+        [isAdmin ? 1 : 0, isBanned ? 1 : 0, isMuted ? 1 : 0, userId],
+        function(err) {
+            if (err) {
+                console.error('Error updating user:', err);
+                return res.status(500).json({ error: 'DB error' });
+            }
+            
+            db.get("SELECT id, username, display_name, avatar_url, is_admin, is_banned, is_muted FROM users WHERE id = ?", [userId], (err, user) => {
+                if (err || !user) {
+                    return res.status(500).json({ error: 'User not found after update' });
+                }
+                const updatedUser = {
+                    id: user.id,
+                    username: user.username,
+                    displayName: user.display_name || user.username,
+                    avatar: user.avatar_url,
+                    isAdmin: user.is_admin === 1,
+                    isBanned: user.is_banned === 1,
+                    isMuted: user.is_muted === 1
+                };
+                io.emit('user_updated', updatedUser); // Уведомить всех об обновлении
+                res.json({ success: true, user: updatedUser });
+            });
         }
     );
 });
@@ -214,7 +260,11 @@ app.delete('/api/users/:userId', (req, res) => {
         db.run("DELETE FROM messages WHERE user_id = ?", [userId]);
         db.run("DELETE FROM direct_messages WHERE from_user = ? OR to_user = ?", [userId, userId]);
         db.run("DELETE FROM users WHERE id = ?", [userId], function(err) {
-            if (err) return res.status(500).json({ error: 'DB error' });
+            if (err) {
+                console.error('Error deleting user:', err);
+                return res.status(500).json({ error: 'DB error' });
+            }
+            io.emit('user_deleted', parseInt(userId)); // Уведомить всех об удалении
             res.json({ success: true });
         });
     });
@@ -233,9 +283,32 @@ io.on('connection', (socket) => {
             displayName: userData.displayName,
             avatar: userData.avatar,
             isAdmin: userData.isAdmin,
+            isBanned: userData.isBanned,
+            isMuted: userData.isMuted,
             socketId: socket.id
         });
         
+        io.emit('online_users', Array.from(onlineUsers.values()));
+    });
+
+    // Обновление пользователя (через сокет)
+    socket.on('user_updated', (updatedUser) => {
+        for (let [id, user] of onlineUsers) {
+            if (user.id === updatedUser.id) {
+                onlineUsers.set(id, { ...user, ...updatedUser });
+                break;
+            }
+        }
+        io.emit('online_users', Array.from(onlineUsers.values()));
+    });
+
+    // Удаление пользователя (через сокет)
+    socket.on('user_deleted', (userId) => {
+        for (let [id, user] of onlineUsers) {
+            if (user.id === userId) {
+                onlineUsers.delete(id);
+            }
+        }
         io.emit('online_users', Array.from(onlineUsers.values()));
     });
 
